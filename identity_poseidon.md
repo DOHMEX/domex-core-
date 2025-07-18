@@ -1,20 +1,12 @@
-# Quantum-Safe Identity with Poseidon Hash
+# Quantum-Safe Identity System (Poseidon Hash Commitment)
 
-Domex eliminates ECDSA-based wallets by introducing Poseidon hash-based identity commitments.
+Domex does not use wallets, ECDSA signatures, or public-private keypairs. Instead, all user and validator identity is defined by **Poseidon hash commitments**, ensuring long-term quantum resistance and seamless ZK proof integration.
 
-## Key Structure
-- Each user generates a Poseidon commitment:
+---
 
+## 🔒 Identity = Poseidon Commitment
 
-identity = Poseidon(private_key)
-A vault action is authorized only if the submitted proof includes a valid identity hash.
+Each Domex identity is represented as:
 
-## Use Cases
-- Token onboarding  
-- Trade proof submission  
-- Claim rights and exit proofs
-
-## Benefits
-- Quantum-resistant  
-- No wallet key exposure  
-- Scalable identity commitments for large user bases
+```text
+poseidon_hash = Poseidon(seed || context)

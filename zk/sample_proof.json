@@ -1,0 +1,16 @@
+{
+  "vault_id": "0xbtc_usdt_vault01",
+  "token": "dBTC",
+  "proof_type": "withdrawal",
+  "amount": 1.25,
+  "poseidon_identity": "0x5e48bd723c95f813fe12c2f9939d4c0f123abcef9847d932db85e334fa2f11ae",
+  "zk_proof": {
+    "a": "0x2d3f5caa91c649b5f26a8aeaa6ad44ab76842b1f75a1c984e5a238c1e8883a1f",
+    "b": "0x0ea8f94a49d9b5f39b4e1e5b437d73b4a4e390a5b14671634c83e3fd2b1a4b2f",
+    "c": "0x0c7fd22d84765f4e4a5a9873b3a1c8ec70e6b1d9a1092e12f2438b79f6b7a3ae"
+  },
+  "merkle_root": "0x59a83296bca221bdfdd3131ef56d631d0e37c30db68d51dfc616e31975f3a9b1",
+  "destination_address": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+  "timestamp": 1721309445,
+  "nonce": "0xb3f8d9e2"
+}

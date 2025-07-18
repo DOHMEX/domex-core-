@@ -10,7 +10,7 @@ Domex replaces traditional transaction-based blockchains with a vault-state exec
 
 Markets today are fragmented. Liquidity is siloed across blockchains, apps, and exchanges, with no unified access or composability.
 
-**Domex introduces a universal, shared order book secured by zk-proofs.** It creates a permissionless financial layer where market activity is triggered by cryptographic proofs — not transactions or smart contracts.
+**Domex introduces a universal, shared order book secured by zk-proofs.** It creates a permissionless financial layer where market activity is triggered by cryptographic proofs, not transactions or smart contracts.
 
 ---
 
@@ -20,7 +20,7 @@ Markets today are fragmented. Liquidity is siloed across blockchains, apps, and 
   Market actions are triggered by zero-knowledge proofs tied to vault state transitions. No transactions. No gas.
 
 - **Global Liquidity Layer**  
-  Unified, permissionless order book for DeFi and OTC flows — across chains.
+  Unified, permissionless order book for DeFi and OTC flows, across chains.
 
 - **Quantum-Safe Identity**  
   Uses Poseidon hash-based identities (no ECDSA). Domex is quantum-resistant by default.

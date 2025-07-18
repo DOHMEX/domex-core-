@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Domex ZK Proof Payload",
+  "description": "Schema for submitting ZK proof to onboard or withdraw assets",
+  "type": "object",
+  "required": [
+    "vault_id",
+    "token",
+    "proof_type",
+    "amount",
+    "poseidon_identity",
+    "zk_proof",
+    "merkle_root"
+  ],
+  "properties": {
+    "vault_id": {
+      "type": "string",
+      "description": "The vault this proof is tied to"
+    },
+    "token": {
+      "type": "string",
+      "description": "The token being onboarded or withdrawn (e.g., dBTC)"
+    },
+    "proof_type": {
+      "type": "string",
+      "enum": ["onboarding", "withdrawal"],
+      "description": "Type of ZK proof submitted"
+    },
+    "amount": {
+      "type": "number",
+      "minimum": 0.00000001,
+      "description": "Amount of token to mint (onboarding) or burn (withdrawal)"
+    },
+    "poseidon_identity": {
+      "type": "string",
+      "description": "Hashed identity of the proof originator (Poseidon commitment)"
+    },
+    "zk_proof": {
+      "type": "object",
+      "description": "ZK-SNARK proof fields",
+      "properties": {
+        "a": { "type": "string" },
+        "b": { "type": "string" },
+        "c": { "type": "string" }
+      },
+      "required": ["a", "b", "c"]
+    },
+    "merkle_root": {
+      "type": "string",
+      "description": "Merkle root the proof is tied to"
+    },
+    "destination_address": {
+      "type": "string",
+      "description": "Target address on native chain (only for withdrawals)"
+    },
+    "timestamp": {
+      "type": "integer",
+      "description": "Unix timestamp of proof submission (optional)"
+    },
+    "nonce": {
+      "type": "string",
+      "description": "Optional nonce for replay prevention"
+    }
+  }
+}

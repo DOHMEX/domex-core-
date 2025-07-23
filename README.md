@@ -58,7 +58,7 @@ Bridged assets are verified with client-side ZK proofs and made tradable in the 
 ## 🛣️ Roadmap (2025)
 
 - ✅ Protocol design finalized  
-- ✅ ZK identity + vault execution implemented  
+- 🔄 ZK identity + vault logic finalized,code not yet implemented
 - 🔄 Client-side proof bridge circuits (Cosmos, Ethereum)  
 - 🔄 MVP shared vault matching interface  
 - 🔜 zk audit tools and verifier integration  

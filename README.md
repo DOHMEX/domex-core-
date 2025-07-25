@@ -48,7 +48,7 @@ Bridged assets are verified with client-side ZK proofs and made tradable in the 
 
 ## 🔗 Resources
 
-- 📜 **Whitepaper**: [View PDF](https://drive.google.com/file/d/1RMk1m5Gdf2j2qI8C4HQVNZuIdbX-yCbT/view?usp=drive_link)
+- 📜 **Whitepaper**: [View PDF](https://drive.google.com/file/d/1sRQ8050Pi_HmoTVlU0yaIoionKzciMew/view?usp=drive_link)
 - 🎥 **Demo Video (70s)**: [YouTube](https://www.youtube.com/watch?v=h6hQoVIQCpM)
 - 📘 **DoraHacks BUIDL**: [Domex on Dora](https://dorahacks.io/buidl/28435)
 - 📘 **ETHGlobal Showcase**: [Domex Protocol](https://ethglobal.com/showcase/domex-protocol-qh6zh)

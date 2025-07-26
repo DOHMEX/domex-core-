@@ -6,36 +6,35 @@
 //!
 //! It is responsible for:
 //! 1. Validating order instructions
-//! 2. Enforcing the 2% delta rule
+//! 2. Enforcing the 2% delta rule (vs global liquidity price)
 //! 3. Updating account balances
 //! 4. Verifying Poseidon-bound identity rights
 //! 5. Preparing Merkle deltas for Raft proposal
 //! 6. Emitting post-trade ownership transitions
 
-use crate::vault_registry::{VaultMetadata, VaultPair};
+use crate::vault_registry::VaultMetadata;
 use crate::identity::verify_poseidon_auth;
 use crate::ownership::transfer_ownership;
 use crate::delta_checker::check_price_delta;
 use crate::balance_snapshot::generate_balance_delta;
 use crate::event_log::emit_trade_event;
 
-use crate::types::{OrderInstruction, TradeResult, VaultState, PoseidonHash, BalanceChange};
+use crate::types::{OrderInstruction, TradeResult, VaultState, BalanceChange};
 
 /// Executes a trade within a vault given a validated order instruction.
 pub fn execute_trade(
     state: &mut VaultState,
     order: OrderInstruction,
     vault_meta: &VaultMetadata,
-    last_price: u64,
 ) -> Result<TradeResult, &'static str> {
     // Step 1: Verify the Poseidon identity matches vault ownership
     if !verify_poseidon_auth(&order.owner_hash, &state.vault_id) {
         return Err("Invalid Poseidon identity for this vault");
     }
 
-    // Step 2: Enforce the 2% delta rule (compare order price to last matched price)
-    if !check_price_delta(order.price, last_price, vault_meta.max_delta_bps) {
-        return Err("Order violates 2% delta rule");
+    // Step 2: Enforce the 2% delta rule based on global liquidity price
+    if !check_price_delta(order.price, vault_meta.liquidity_price, vault_meta.max_delta_bps) {
+        return Err("Order violates global liquidity delta rule");
     }
 
     // Step 3: Check for sufficient balance (basic pre-trade risk check)

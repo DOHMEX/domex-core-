@@ -3,19 +3,8 @@
 // ===================================
 
 use crate::types::{OrderInstruction, BalanceChange};
+use crate::types::event_log::TradeEvent;
 use std::time::{SystemTime, UNIX_EPOCH};
-
-/// Core trade event emitted after a successful execution
-pub struct TradeEvent {
-    pub vault_id: String,
-    pub buyer: String,
-    pub seller: String,
-    pub token: String,
-    pub size: u64,
-    pub price: u64,
-    pub balance_delta: Vec<BalanceChange>,
-    pub timestamp: u64,
-}
 
 /// Emits a trade event to stdout or optional subscriber
 pub fn emit_trade_event(order: &OrderInstruction, delta: &Vec<BalanceChange>) {

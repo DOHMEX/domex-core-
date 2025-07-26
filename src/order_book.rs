@@ -1,12 +1,12 @@
 // =====================================
 // order_book.rs — Domex Order Matcher
-// ====================================°
+// =====================================
 
 //! Matching engine for limit/market orders inside a vault.
 //! Applies skip logic (only one node matches), and emits raft proposals.
 
 use crate::types::{OrderInstruction, TradeResult, VaultState, RaftProposal};
-use crate::vault_registry::VaultMetadata;
+use crate::vault_registry::{VaultMetadata, is_vault_active};
 use crate::vault_logic::execute_trade;
 
 use std::collections::{BTreeMap, VecDeque};
@@ -34,6 +34,12 @@ impl OrderBook {
         order: OrderInstruction,
         vault_meta: &VaultMetadata,
     ) -> Option<RaftProposal> {
+        // Phase 2 entry validation — must be ZK-verified
+        if !is_vault_active(&state.vault_id, &order.owner_hash) {
+            println!("[MATCH] Rejected: vault not ZK-activated for {}", &order.owner_hash);
+            return None;
+        }
+
         // Skip logic: this node is responsible for matching
         if let Some(counterparty) = self.match_order(&order) {
             let matched_price = order.price;
@@ -43,7 +49,7 @@ impl OrderBook {
                 ..order.clone()
             };
 
-            // Call core executor
+            //  Core vault execution
             match execute_trade(state, filled_order.clone(), vault_meta, self.last_price) {
                 Ok(result) => {
                     self.last_price = matched_price;
@@ -52,7 +58,10 @@ impl OrderBook {
                         trade: result,
                     })
                 }
-                Err(_) => None,
+                Err(e) => {
+                    println!("[MATCH] Trade execution failed: {}", e);
+                    None
+                }
             }
         } else {
             // No match: queue as limit order

@@ -1,20 +1,20 @@
-// ============================================
-// types/orderbook.rs — Shared OrderBook Types
-// ============================================
+// ============================================  
+// types/orderbook.rs — Shared OrderBook Types  
+// ============================================  
 
 use std::collections::HashMap;
 
-/// Alias for Poseidon-based identity hash
+/// Alias for Poseidon-based identity hash  
 pub type PoseidonHash = [u8; 32];
 
-/// Order intent type (buy or sell)
-#[derive(Debug, Clone)]
+/// Order intent type (buy or sell)  
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OrderIntent {
     Buy,
     Sell,
 }
 
-/// A single order instruction submitted by a user
+/// A single order instruction submitted by a user  
 #[derive(Debug, Clone)]
 pub struct OrderInstruction {
     pub vault_id: String,
@@ -26,7 +26,7 @@ pub struct OrderInstruction {
     pub counterparty_hash: PoseidonHash, // Filled by matching engine
 }
 
-/// Result of a completed and verified trade
+/// Result of a completed and verified trade  
 #[derive(Debug, Clone)]
 pub struct TradeResult {
     pub vault_id: String,
@@ -38,7 +38,7 @@ pub struct TradeResult {
     pub balance_delta: Vec<BalanceChange>,
 }
 
-/// Describes a single balance change (used in Merkle + ZK proof)
+/// Describes a single balance change (used in Merkle + ZK proof)  
 #[derive(Debug, Clone)]
 pub struct BalanceChange {
     pub identity: PoseidonHash,
@@ -46,7 +46,7 @@ pub struct BalanceChange {
     pub delta: i64, // +ve for credit, -ve for debit
 }
 
-/// VaultState tracks per-identity token balances and vault ID
+/// VaultState tracks per-identity token balances and vault ID  
 #[derive(Debug)]
 pub struct VaultState {
     pub vault_id: String,
@@ -71,9 +71,27 @@ impl VaultState {
     }
 }
 
-/// Proposal to be committed via Raft consensus
+/// Proposal to be committed via Raft consensus  
 #[derive(Debug, Clone)]
 pub struct RaftProposal {
     pub vault_id: String,
     pub trade: TradeResult,
 }
+
+/// ZK onboarding proof submitted by a user to activate Phase 2
+#[derive(Debug, Clone)]
+pub struct ZkOnboardingProof {
+    pub vault_id: String,
+    pub owner_hash: PoseidonHash,
+    pub merkle_root: String,     // From global validator
+    pub proof_blob: Vec<u8>,     // Serialized ZK proof (e.g., Groth16, PlonK)
+}
+
+/// Internal activation registry entry
+#[derive(Debug, Clone)]
+pub struct VaultActivation {
+    pub vault_id: String,
+    pub owner_hash: PoseidonHash,
+    pub zk_proof: ZkOnboardingProof,
+    pub is_active: bool,
+    }

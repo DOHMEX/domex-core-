@@ -1,0 +1,14 @@
+[package]
+name = "domex-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.0", features = ["full"] }
+
+# ZK-friendly Poseidon hash libraries (Arkworks)
+ark-ff = "0.4"
+ark-std = "0.4"
+ark-sponge = "0.4"
+ark-bls12-381 = "0.4"

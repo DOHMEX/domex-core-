@@ -12,9 +12,10 @@ pub struct VaultPair(pub String);
 #[derive(Clone, Debug)]
 pub struct VaultMetadata {
     pub tick_size: u64,         // Minimum price movement (e.g. 100 = $1.00)
-    pub max_delta_bps: u64,     // Max delta in basis points (e.g. 200 = 2%)
+    pub max_delta_bps: u64,     // Max allowed deviation in BPS (e.g. 200 = 2%)
     pub base_token: String,
     pub quote_token: String,
+    pub liquidity_price: u64,   // Global liquidity anchor (VWAP or oracle price)
 }
 
 /// Vault activation status — tracks which Poseidon identities are allowed to trade
@@ -47,5 +48,17 @@ impl VaultRegistry {
     /// Retrieve vault trading rules
     pub fn get_metadata(&self, pair: &VaultPair) -> Option<&VaultMetadata> {
         self.metadata_map.get(pair)
+    }
+
+    /// Update the vault’s global liquidity price (from oracle or sync)
+    pub fn update_liquidity_price(&mut self, pair: &VaultPair, new_price: u64) {
+        if let Some(metadata) = self.metadata_map.get_mut(pair) {
+            metadata.liquidity_price = new_price;
+        }
+    }
+
+    /// Fetch the latest liquidity anchor price
+    pub fn get_liquidity_price(&self, pair: &VaultPair) -> Option<u64> {
+        self.metadata_map.get(pair).map(|meta| meta.liquidity_price)
     }
 }

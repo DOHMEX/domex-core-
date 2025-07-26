@@ -1,0 +1,9 @@
+pub mod vault_logic;
+pub mod order_book;
+pub mod vault_registry;
+pub mod identity;
+pub mod ownership;
+pub mod vault_raft_adapter;
+pub mod delta_checker;
+pub mod balance_snapshot;
+pub mod event_log;

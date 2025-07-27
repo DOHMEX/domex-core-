@@ -17,17 +17,21 @@ use crate::types::{BalanceChange, MerkleDelta};
 pub fn generate_balance_delta(changes: &[BalanceChange]) -> Vec<MerkleDelta> {
     changes
         .iter()
-        .map(|c| {
-            // Snapshot structure depends on external state; assume previous balances are known upstream
-            // This example assumes the balance delta already happened in vault state
-            let before = 0; // Placeholder — real implementation would query snapshot history
-            let after = before + c.delta;
+        .map(|change| {
+            let identity = change.identity.clone(); //  Poseidon identity hash
+            let token = change.token.clone();       //  Token symbol (e.g., dBTC)
+            let delta_value = change.delta;         //  Change in token balance
+
+            // In production, these would be fetched from historical vault state snapshots.
+            // For now, we simulate with a zero-baseline and delta math.
+            let before_balance: i64 = 0; // Placeholder — replace with snapshot lookup
+            let after_balance = before_balance + delta_value;
 
             MerkleDelta {
-                identity: c.identity.clone(),
-                token: c.token.clone(),
-                before,
-                after,
+                identity,
+                token,
+                before: before_balance,
+                after: after_balance,
             }
         })
         .collect()

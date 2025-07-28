@@ -6,7 +6,7 @@
 
 ## 🧭 Overview
 
-The **Domex Delta Law** is a zero-knowledge-based liquidity fairness protocol that prevents any single actor (wallet, bot, CEX, DAO, etc.) from onboarding more than ±2% of the global liquidity for any trading pair within a defined time window,**without tracking addresses or storing history**.
+The **Domex Delta Law** is a zero-knowledge-based liquidity fairness protocol that prevents any single actor (wallet, bot, CEX, DAO, etc.) from onboarding more than ±2% of the global liquidity for any trading pair within a defined time window, **without tracking addresses or storing history**.
 
 This is achieved by binding every deposit to a cryptographic vault identity using Poseidon hashing, and enforcing limits entirely through **ZK circuit logic**, not behavior analysis.
 

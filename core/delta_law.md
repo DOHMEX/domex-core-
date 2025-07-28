@@ -1,12 +1,12 @@
 # 🧮 Domex Delta Law : README
 
-> **Trustless Liquidity Limits via ZK Proofs – No Tracking, No Surveillance**
+> **Trustless Liquidity Limits via ZK Proofs, No Tracking, No Surveillance**
 
 ---
 
 ## 🧭 Overview
 
-The **Domex Delta Law** is a zero-knowledge-based liquidity fairness protocol that prevents any single actor (wallet, bot, CEX, DAO, etc.) from onboarding more than ±2% of the global liquidity for any trading pair within a defined time window — **without tracking addresses or storing history**.
+The **Domex Delta Law** is a zero-knowledge-based liquidity fairness protocol that prevents any single actor (wallet, bot, CEX, DAO, etc.) from onboarding more than ±2% of the global liquidity for any trading pair within a defined time window,**without tracking addresses or storing history**.
 
 This is achieved by binding every deposit to a cryptographic vault identity using Poseidon hashing, and enforcing limits entirely through **ZK circuit logic**, not behavior analysis.
 
@@ -19,7 +19,7 @@ This is achieved by binding every deposit to a cryptographic vault identity usin
 This rule is enforced:
 - Using ZK proofs at the moment of onboarding
 - Without checking addresses, wallet history, or origin chains
-- At the cryptographic level — not behavioral
+- At the cryptographic level, not behavioral
 
 ---
 

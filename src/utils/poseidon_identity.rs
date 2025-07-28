@@ -1,4 +1,4 @@
-// Domex :: utils/poseidon_identity.rs
+// Domex :: utils/poseidon_identity.rs.
 // Generates a Poseidon-based identity hash for validators and vaults
 
 use crate::utils::poseidon_hash;

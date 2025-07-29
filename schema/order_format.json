@@ -1,45 +1,49 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Domex Order Format",
-  "description": "Schema for submitting trade intent to a Domex vault",
+  "description": "Schema for submitting trade intent to a Domex vault (validator-enforced, zk-settled)",
   "type": "object",
   "required": ["vault_id", "token", "intent", "size", "price", "order_type"],
   "properties": {
     "vault_id": {
       "type": "string",
-      "description": "ID of the vault where order is placed (e.g., BTC/USDT)"
+      "description": "ID of the Domex vault where the order is submitted (e.g., '0xbtc_usdt_vault01')"
     },
     "token": {
       "type": "string",
-      "description": "dToken being traded (e.g., dBTC)"
+      "description": "Token being traded (e.g., 'dBTC')"
     },
     "intent": {
       "type": "string",
       "enum": ["buy", "sell"],
-      "description": "Order direction"
+      "description": "Trade direction"
     },
     "size": {
       "type": "number",
       "minimum": 0.00000001,
-      "description": "Amount of tokens to buy/sell"
+      "description": "Amount of token units to trade"
     },
     "price": {
       "type": "number",
       "minimum": 0.0001,
-      "description": "Price per token in quote currency"
+      "description": "Price per token in quote currency (e.g., USDT)"
     },
     "order_type": {
       "type": "string",
       "enum": ["limit", "market"],
-      "description": "Type of order"
+      "description": "Order type: limit (price-bound) or market (match best available)"
     },
     "timestamp": {
       "type": "integer",
-      "description": "Unix timestamp of order submission (optional)"
+      "description": "Optional: Unix time when the order was issued (client-side)"
     },
     "nonce": {
       "type": "string",
-      "description": "Optional nonce to prevent replay"
+      "description": "Optional: Unique value to prevent order replay"
+    },
+    "vault_signature": {
+      "type": "string",
+      "description": "Optional: Poseidon-bound hash of the order for zk settlement"
     }
   }
 }

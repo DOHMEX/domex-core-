@@ -43,7 +43,7 @@ Markets today are fragmented. Liquidity is siloed across blockchains, apps, and 
 - ❌ No transaction fees  
 - ❌ No on-chain bridges or wrapped assets  
 
-All market interaction occurs through off-chain zk clients that submit proofs of ownership, trade intent, or withdrawal — validated by the protocol.
+All market interaction occurs through off-chain zk clients that submit proofs of ownership, trade intent, or withdrawal, validated by the protocol.
 
 ---
 
@@ -56,7 +56,7 @@ Assets like BTC, ETH, and others can enter Domex *without bridges*. Instead:
 - Validator verifies and mints dToken to the user’s vault
 - Exit requires vault burn + zk proof of identity and withdrawal
 
-Domex never holds custody — validators only verify. Bridges are external scripts, not Domex components.
+Domex never holds custody, validators only verify. Bridges are external scripts, not Domex components.
 
 ---
 
@@ -89,8 +89,7 @@ Domex never holds custody — validators only verify. Bridges are external scrip
 We welcome contributors in:
 
 - zk-SNARK circuit development (Ponkey2)  
-- Rust integration for validator tooling  
-- zk-bridge clients and state verifiers  
+- Rust integration for validator tooling    
 - Trading UI and DOM integration (TypeScript, WASM)
 
 > Domex is open-source, zk-native, and permissionless by design. Built for proof-first liquidity.

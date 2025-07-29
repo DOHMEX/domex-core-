@@ -1,118 +1,109 @@
 # Verifier Integration: ZK Proofs and Validator Finality
 
-This document outlines how Domex validators interact with zk-proof submissions, verify Merkle/Verkle roots, and finalize vault state transitions — without relying on bridge contracts or external custody logic.
+This document defines how Domex validators interact with zero-knowledge proofs, verify vault state transitions, and finalize Merkle roots. Unlike traditional chains, Domex does not execute transactions or rely on bridge custody contracts. All logic is driven by cryptographic proof.
 
 ---
 
-## 🔄 ZK Proof Submission Pipeline
+## 🔄 Proof Submission & Validation Flow
 
-1. User generates a zk-SNARK proof using their local zk client or prover.
-2. The proof is submitted to a Domex validator node along with:
+All actions in Domex (onboarding, withdrawal, ownership change) occur via a submitted ZK proof. The validator flow is:
+
+1. **User generates a ZK proof** locally (Plonky2)
+2. **User submits proof payload**, including:
    - `vault_id`
-   - `proof_type` (e.g., onboarding, withdrawal)
-   - Poseidon identity
-   - ZK proof components (`a`, `b`, `c`)
-   - Merkle root snapshot
-3. The validator:
-   - Verifies the ZK proof against the corresponding circuit verifier
-   - Checks the Merkle root matches its current local vault state
-   - Confirms Poseidon identity matches expected vault owner
-4. If all checks pass:
-   - The validator updates vault state (mint, burn, transfer)
-   - Recomputes a new Merkle/Verkle root
-   - Broadcasts this root to the validator quorum for zk-finalization
+   - `proof_type` (e.g., `onboard`, `withdraw`)
+   - `poseidon_identity`
+   - `proof_components` (Plonky2 fields)
+   - `merkle_root_snapshot`
+3. **Validator verifies:**
+   - Proof validity (Plonky2 circuit)
+   - Identity match (Poseidon binding)
+   - Merkle root match to current local vault state
+4. If valid:
+   - Vault state is updated
+   - Merkle root is recomputed
+   - New root is broadcast to validator quorum
 
 ---
 
-## 🔐 ZK Verifier Modules
+## 🔐 Registered ZK Verifiers (Plonky2 Only)
 
-Each registered circuit (e.g., onboarding, withdrawal) is associated with:
+Each circuit type is registered with a:
 
-| Component              | Purpose                                               |
-|------------------------|-------------------------------------------------------|
-| `verifier_hash`        | Hash commitment of circuit verifier (Groth16, PLONK)  |
-| `vault_type`           | Indicates which vaults the circuit applies to         |
-| `merkle_scope`         | Ensures proofs bind to specific Merkle root snapshot  |
+| Component        | Description                                   |
+|------------------|-----------------------------------------------|
+| `verifier_hash`  | Hash of compiled Plonky2 circuit verifier     |
+| `vault_scope`    | Which vaults the circuit is allowed to mutate |
+| `merkle_scope`   | Ensures root binding for replay protection    |
 
-Example verifier entries:
+**Circuit Types:**
 
-| Circuit        | Verifier Hash ID            |
-|----------------|-----------------------------|
-| Onboarding     | `onboard_verifier_hash`     |
-| Withdrawal     | `withdrawal_verifier_hash`  |
-| Identity Check | `poseidon_auth_verifier`    |
+| Circuit       | Verifier Hash (Example)     |
+|---------------|-----------------------------|
+| Onboarding    | `plonky2_onboard_hash`      |
+| Withdrawal    | `plonky2_withdraw_hash`     |
+| Identity Auth | `plonky2_poseidon_auth_hash`|
 
-All verifier hashes must be registered and whitelisted via Merkle onboarding registry to prevent circuit forgery.
+All circuits must be pre-approved in the Domex Merkle-based verifier registry.
 
 ---
 
-## 🧱 Merkle/Verkle Finality Enforcement
+## 🧱 Merkle Root Finalization
 
-After accepting a valid proof, the validator updates its internal Merkle or Verkle root:
+After accepting a proof, validators:
 
-- Encodes new vault balances and token burns/mints
-- Tracks changes in vault ownership (Poseidon identities)
-- Commits new root to validator memory, tied to timestamp or epoch
-- Broadcasts updated root for quorum agreement
+- Encode updated vault state (balances, burns, ownership)
+- Recompute Merkle root from vault tree
+- Broadcast the new root to other validators
+- Participate in quorum-based ZK finalization
 
-Any validator that signs or proposes a root containing:
-- An invalid proof,
-- A forged verifier hash,
-- Or a Merkle mismatch,
-
-...is **automatically slashed** by the protocol.
+If 67% of validators attest the same root with valid proof lineage, the root becomes globally final.
 
 ---
 
 ## ✅ zk-Finality Criteria
 
-A zk-proof is finalized only if:
+A proof is considered final only if:
 
-- ✅ It is cryptographically valid (Groth16 or PLONK)
-- ✅ It is bound to the current Merkle/Verkle root
-- ✅ It passes replay prevention (nonce/timestamp check)
-- ✅ The Poseidon identity proves ownership of the vault
-- ✅ The verifier hash is approved in the registry
-
----
-
-## 🧠 Integration Logic: Rust & Optional Solidity
-
-| Language | Role                                                                 |
-|----------|----------------------------------------------------------------------|
-| Rust     | Domex validators use native Arkworks or Noir-based verifiers         |
-| Solidity (optional) | External DAOs or bridge watchers can verify finalized Merkle roots off-chain |
-
-Domex validator operations are fully **off-chain** but publicly visible.  
-Validators publish:
-- Finalized Merkle roots
-- Circuit hashes
-- Proof payload metadata (anonymized)
-
-This allows external verifiers (e.g., CEXs, DAOs) to independently audit finality.
+- ✅ Valid Plonky2 proof matches registered circuit
+- ✅ Bound to current Merkle root snapshot
+- ✅ Includes replay protection via nonce/timestamp
+- ✅ Identity matches vault ownership (Poseidon-hashed)
+- ✅ Root is approved by validator quorum
 
 ---
 
-## ⚠️ Slashing & Validator Integrity
+## 🛠️ Validator Integration (Rust Only)
 
-| Violation Type            | Consequence             |
-|---------------------------|--------------------------|
-| Invalid zk-proof finalized| Immediate slashing       |
-| Verifier hash mismatch    | Quorum rejection         |
-| Root tampering            | Validator blacklisting   |
-| Registry bypass attempt   | Permanent validator ban  |
+Domex validators run **native Rust** verification logic using Plonky2. There is no Solidity fallback.
+
+| Layer      | Role                             |
+|------------|----------------------------------|
+| Rust (Ark/Plonky2) | All zk-verification (in-memory) |
+| DOM Clients | Consume finalized root snapshots |
+
+All validator operations are **off-chain** but globally visible. Roots and proofs are published for public auditing.
+
+---
+
+## 🔨 Slashing Conditions
+
+| Violation                      | Penalty             |
+|-------------------------------|---------------------|
+| Finalizing invalid proof       | Immediate slash     |
+| Verifier hash not whitelisted | Quorum rejection    |
+| Invalid Merkle root proposed  | Blacklist & ban     |
+| Identity mismatch             | No finality granted |
 
 ---
 
-## 🛑 Domex Finality Disclaimer
+## 🛑 Protocol Scope
 
-Domex does **not** verify zk clients, wallets, or key management tools.  
-It only finalizes proofs that:
+Domex **does not** verify zk wallets, bridges, or frontends. It only finalizes:
 
-- Match a vault schema
-- Reference a valid Poseidon-bound identity
-- Align with the validator’s current Merkle state
+- Valid Plonky2 proofs
+- Poseidon-bound vault ownership
+- Registered verifier circuits
+- Correct Merkle root updates
 
-Bridge execution, wallet custody, and withdrawal scripts are **external** to Domex and not controlled by the protocol.
-
----
+Any external tools must comply with Domex proof format and schema.

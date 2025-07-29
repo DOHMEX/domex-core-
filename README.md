@@ -28,7 +28,7 @@ Markets today are fragmented. Liquidity is siloed across blockchains, apps, and 
 
 - **Validator zk-Finality**  
   Global validators finalize state only when zk-SNARK proofs are valid and Merkle root transitions are cryptographically correct.  
-  → Validators do not run transactions — they verify, finalize, and publish state.
+  → Validators do not run transactions, they verify, finalize, and publish state.
 
 - **Local Matching Engine**  
   Vaults are operated by Raft-style local consensus for microsecond-level trade execution, with finality handled globally.

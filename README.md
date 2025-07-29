@@ -10,7 +10,7 @@ Domex replaces traditional transaction-based blockchains with a vault-state exec
 
 Markets today are fragmented. Liquidity is siloed across blockchains, apps, and exchanges, with no unified access or composability.
 
-**Domex introduces a universal, shared order book secured by zk-proofs.** It creates a permissionless financial layer where market activity is triggered by cryptographic proofs — not transactions or smart contracts.
+**Domex introduces a universal, shared order book secured by zk-proofs.** It creates a permissionless financial layer where market activity is triggered by cryptographic proofs, not transactions or smart contracts.
 
 ---
 

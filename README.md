@@ -88,8 +88,8 @@ Domex never holds custody — validators only verify. Bridges are external scrip
 
 We welcome contributors in:
 
-- zk-SNARK circuit development (Groth16, PLONK)  
-- Rust/CosmWasm integration for validator tooling  
+- zk-SNARK circuit development (Ponkey2)  
+- Rust integration for validator tooling  
 - zk-bridge clients and state verifiers  
 - Trading UI and DOM integration (TypeScript, WASM)
 

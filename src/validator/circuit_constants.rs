@@ -13,19 +13,19 @@ pub const SECRET_KEY_BITS: usize = 256;
 pub const PALLAS_FIELD_MODULUS: &str =
     "28948022309329048855892746252171976963363056481941647379679742748393362948097";
 
-/// Minimum onboardable token amount (safe default)
-pub const MIN_ONBOARD_AMOUNT: u64 = 10_000; // e.g., sats, wei, etc.
+/// Minimum onboardable token amount (e.g., 10_000 sats, wei, etc.)
+pub const MIN_ONBOARD_AMOUNT: u64 = 10_000;
 
-/// Maximum vault ID size (bits) — used for zk constraint range checks
+/// Maximum vault ID size (bits) — used in zk constraint range checks
 pub const MAX_VAULT_ID_BITS: usize = 64;
 
 /// Validator-assigned zk_node_id byte length
 pub const NODE_ID_BYTES: usize = 32;
 
-/// Max zk proof byte size for onboarding (Groth16 default safety cap)
+/// Maximum zk proof byte size for onboarding (Groth16 safe upper bound)
 pub const MAX_ZK_PROOF_BYTES: usize = 512;
 
-/// Poseidon personalization domains (for internal zk/circuit labels)
+/// Poseidon personalization domains (for circuit-specific binding and audit separation)
 pub mod domains {
     pub const IDENTITY: &str = "domex.poseidon.identity";
     pub const WITHDRAW: &str = "domex.poseidon.withdraw";

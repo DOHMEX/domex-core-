@@ -5,21 +5,23 @@ use crate::types::{BatchAggregateResult, ProofAttestation};
 use crate::utils::{poseidon_hash, sign_message};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// Builds a proof attestation that binds this validator to a specific zk_root,
-/// along with vault metadata and validator identity.
+/// Builds a validator attestation over a verified zk_root batch.
+/// The attestation binds validator identity to the zk proof result,
+/// including proof metadata and vaults affected.
 ///
-/// This output is sent to the 300+1 validator quorum for consensus.
+/// Sent to the 301-node validator quorum for attestation aggregation.
 pub fn build_attestation(
     aggregated: &BatchAggregateResult,
-    validator_id: &str,
-    validator_sk: &str,
+    validator_id: &str,   // Poseidon(sk || zk_node_id)
+    validator_sk: &str,   // Private signing key for this validator
 ) -> ProofAttestation {
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .expect("System time before UNIX epoch")
+        .expect("System time is before UNIX epoch")
         .as_secs();
 
-    // Construct attestation content as a string to hash and sign
+    // Construct the attestation message deterministically
+    // Fields must match the order and format of on-chain verifier
     let message = format!(
         "{}|{}|{}|{}|{}|{}",
         aggregated.zk_root,
@@ -30,9 +32,13 @@ pub fn build_attestation(
         timestamp
     );
 
+    // Compute the Poseidon hash of the message content
     let attestation_hash = poseidon_hash(&message);
+
+    // Sign the hash with validator private key (can use Poseidon-based sig or BLS/Groth in future)
     let signature = sign_message(validator_sk, &attestation_hash);
 
+    // Return completed attestation
     ProofAttestation {
         zk_root: aggregated.zk_root.clone(),
         validator_id: validator_id.to_string(),

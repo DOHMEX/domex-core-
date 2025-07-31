@@ -9,41 +9,64 @@ use crate::types::circuit_interface::CircuitInputs;
 use crate::validator::circuit_verifier_backend::verify_groth16_proof;
 use pasta_curves::Fp;
 
+/// Onboarding result state
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OnboardingVerificationResult {
+    Valid,
+    ValidWithLock, // for onchain_guarded mode (e.g., script-locked BTC)
+    Invalid(String),
+}
+
+/// Errors during onboarding zk proof validation
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ZkVerifierError {
+    InvalidProof,
+    IdentityHashMismatch,
+    MalformedPublicInputs,
+    UnsafeZeroIdentity,
+    MissingOrInvalidWithdrawalMode,
+    InvalidLockScript,
+    MissingWithdrawIntent,
+    VerificationBackendError(String),
+}
+
 /// Validates zk onboarding proof:
-/// - Proof is valid
+/// - Proof is cryptographically valid
 /// - Identity hash recomputes correctly
-/// - No secret key (`sk`) appears in public inputs
+/// - Withdrawal mode is declared
+/// - Lock script integrity is optionally enforced
 pub fn verify_onboarding_proof(
     proof_bytes: &ZkProofBytes,
     public_inputs: &ZkOnboardingPublicInputs,
-) -> Result<(), ZkProverError> {
-    // ================================
-    // 1. Reconstruct identity hash from public data
-    // This simulates validator logic WITHOUT knowing `sk`
-    // ================================
-
-    let vault_fp = u64_to_fp(public_inputs.vault_id);
-    let node_fp = bytes_to_fp(&public_inputs.zk_node_id);
-
-    // NOTE: The validator cannot see `sk`, so it can't recompute identity_hash directly.
-    // But it checks that the ZK proof proves correct knowledge of `sk` such that:
-    // Poseidon(sk || vault_id || zk_node_id) = identity_hash
-
-    // The proof will fail if this binding is false.
-
-    // ================================
-    // 2. Verify ZK proof validity (Groth16 or Plonk backend)
-    // ================================
-    verify_groth16_proof(proof_bytes, public_inputs)
-        .map_err(|_| ZkProverError::ProofGenerationFailed)?;
-
-    // ================================
-    // 3. Ensure identity hash looks canonical
-    // ================================
+) -> Result<OnboardingVerificationResult, ZkVerifierError> {
+    // === Phase 1: Input checks ===
     if public_inputs.identity_hash.is_zero() {
-        return Err(ZkProverError::InvalidSecretKey);
+        return Err(ZkVerifierError::UnsafeZeroIdentity);
     }
 
-    // Proof is valid and identity format is safe
-    Ok(())
+    if public_inputs.withdrawal_mode.is_none() {
+        return Err(ZkVerifierError::MissingOrInvalidWithdrawalMode);
+    }
+
+    // === Phase 2: Cryptographic proof check ===
+    verify_groth16_proof(proof_bytes, public_inputs)
+        .map_err(|e| ZkVerifierError::VerificationBackendError(format!("{:?}", e)))?;
+
+    // === Phase 3: Withdrawal-mode dependent logic ===
+    match public_inputs.withdrawal_mode.as_deref() {
+        Some("strict_approved_only") => Ok(OnboardingVerificationResult::Valid),
+
+        Some("onchain_guarded") => {
+            if public_inputs.lock_script_hash.is_none() {
+                return Err(ZkVerifierError::InvalidLockScript);
+            }
+            if public_inputs.withdraw_intent.is_none() {
+                return Err(ZkVerifierError::MissingWithdrawIntent);
+            }
+
+            Ok(OnboardingVerificationResult::ValidWithLock)
+        }
+
+        _ => Err(ZkVerifierError::MissingOrInvalidWithdrawalMode),
+    }
 }

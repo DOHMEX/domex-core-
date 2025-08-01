@@ -1,5 +1,5 @@
 // Domex :: vault_state_manager.rs
-// Tracks vault state for Poseidon-based Domex vaults and generates Merkle leaf hashes
+// Tracks vault state for Poseidon-based vaults and generates Merkle leaf hashes
 
 use bitcoin::Txid;
 use serde::{Serialize, Deserialize};
@@ -7,70 +7,86 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::poseidon_utils::poseidon_hash4;
 
-/// Vault state tracked by Domex global validators (applies to all vault types)
+/// Vault state tracked by Domex global validators
+/// Used to compute Poseidon-based Merkle tree leaves
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VaultState {
     pub vault_id: String,              // e.g., "vault-btc-01"
     pub identity_hash: [u8; 32],       // Poseidon(sk || vault_id || zk_node_id)
     pub pool_hash: [u8; 32],           // Poseidon(script_bytes)
-    pub balance: u64,                  // Token balance (in sats, wei, or minimal unit)
-    pub last_updated: u64,             // UNIX timestamp (seconds)
-    pub last_txid: Option<Txid>,       // Optional: BTC last UTXO deposit
+    pub balance_sat: u64,              // Confirmed vault balance
+    pub last_updated: u64,             // UNIX timestamp
+    pub last_txid: Option<Txid>,       // Optional BTC txid (for BTC-native vaults)
 }
 
 impl VaultState {
-    /// Create a new vault snapshot with current timestamp
+    /// Constructs a new vault entry
     pub fn new(
         vault_id: impl Into<String>,
         identity_hash: [u8; 32],
         pool_hash: [u8; 32],
-        balance: u64,
+        balance_sat: u64,
         last_txid: Option<Txid>,
     ) -> Self {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-
         Self {
             vault_id: vault_id.into(),
             identity_hash,
             pool_hash,
-            balance,
-            last_updated: now,
+            balance_sat,
+            last_updated: current_unix_timestamp(),
             last_txid,
         }
     }
 
-    /// Apply a trade to this vault (positive = buy, negative = sell)
-    pub fn apply_trade(&mut self, delta: i64) {
-        let updated = (self.balance as i64) + delta;
-        assert!(updated >= 0, "Trade would underflow vault balance");
-        self.balance = updated as u64;
-        self.last_updated = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+    /// Apply a trade to the vault (buy or sell)
+    /// Updates balance and timestamp — triggers Merkle root update at validator layer
+    pub fn apply_trade(&mut self, delta_sat: i64) {
+        let updated = (self.balance_sat as i64) + delta_sat;
+        assert!(updated >= 0, "Trade underflow: vault balance below zero");
+        self.balance_sat = updated as u64;
+        self.last_updated = current_unix_timestamp();
     }
 
-    /// Generate a Poseidon Merkle leaf (ZK-consumable)
-    /// Merkle Leaf = Poseidon(identity_hash || pool_hash || balance || last_updated)
+    /// Apply a confirmed deposit (e.g., BTC sent to vault script)
+    pub fn apply_deposit(&mut self, amount: u64, txid: Txid) {
+        self.balance_sat += amount;
+        self.last_txid = Some(txid);
+        self.last_updated = current_unix_timestamp();
+    }
+
+    /// Apply a withdrawal (burn operation) after validator proof confirmation
+    pub fn apply_withdrawal(&mut self, amount: u64) {
+        assert!(amount <= self.balance_sat, "Withdraw exceeds vault balance");
+        self.balance_sat -= amount;
+        self.last_updated = current_unix_timestamp();
+    }
+
+    /// Returns Poseidon-based Merkle leaf for this vault
+    /// Format: Poseidon(identity_hash || pool_hash || balance || timestamp)
     pub fn to_merkle_leaf(&self) -> [u8; 32] {
         poseidon_hash4(
             &self.identity_hash,
             &self.pool_hash,
-            self.balance,
+            self.balance_sat,
             self.last_updated,
         )
     }
 
-    /// Validate against a known Merkle leaf (for ZK state sync)
+    /// Checks if vault's leaf matches expected hash (validator-side validation)
     pub fn validate_merkle_leaf(&self, expected_leaf: [u8; 32]) -> bool {
         self.to_merkle_leaf() == expected_leaf
     }
 
-    /// Export vault state to JSON
+    /// Serializes vault state to JSON (for logs or proofs)
     pub fn to_json(&self) -> String {
         serde_json::to_string_pretty(&self).unwrap()
     }
+}
+
+/// Returns current UNIX time in seconds
+fn current_unix_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
 }

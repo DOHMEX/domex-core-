@@ -5,9 +5,9 @@ use bitcoin::Txid;
 use serde::{Serialize, Deserialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use sha2::{Sha256, Digest}; // Fallback in case Poseidon is unavailable
+use crate::poseidon_utils::poseidon_hash4;
 
-/// Vault state tracked by Domex global validators
+/// Vault state tracked by Domex global validators and used in Merkle leaf generation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VaultState {
     pub vault_id: String,              // e.g., "vault-btc-01"
@@ -53,22 +53,15 @@ impl VaultState {
             .as_secs();
     }
 
-    /// Generate a Poseidon-style Merkle leaf using SHA256 fallback
-    /// Merkle Leaf = SHA256(identity_hash || pool_hash || balance || last_updated)
+    /// Generate a Poseidon-based Merkle leaf (no SHA256 fallback)
+    /// Merkle Leaf = Poseidon(identity_hash || pool_hash || balance || last_updated)
     pub fn to_merkle_leaf(&self) -> [u8; 32] {
-        let mut data = vec![];
-        data.extend_from_slice(&self.identity_hash);
-        data.extend_from_slice(&self.pool_hash);
-        data.extend_from_slice(&self.balance_sat.to_be_bytes());
-        data.extend_from_slice(&self.last_updated.to_be_bytes());
-
-        let mut hasher = Sha256::new();
-        hasher.update(&data);
-        let result = hasher.finalize();
-
-        let mut leaf = [0u8; 32];
-        leaf.copy_from_slice(&result[..]);
-        leaf
+        poseidon_hash4(
+            &self.identity_hash,
+            &self.pool_hash,
+            self.balance_sat,
+            self.last_updated,
+        )
     }
 
     /// Check if this vault matches the provided Merkle leaf hash

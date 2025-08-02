@@ -1,11 +1,14 @@
-// Domex Validator ZK Proof Builder (Phase 1)
-// src/validator/zk_proof_builder.rs
+// Domex :: validator/zk_proof_builder.rs
+// Builds Phase 1 ZK-bound attestations for onboarding into vaults
+// Used by validators to commit ZK-proof-backed onboarding state
 
 use crate::types::NormalizedProof;
 use crate::utils::poseidon_hash;
 use chrono::Utc;
 
-/// Final proof attestation struct used in Phase 1
+/// Represents a ZK proof attestation committed by validator nodes.
+/// This attestation binds the onboarding proof to the vault, token, owner, and timestamp.
+/// Validators use this as part of the Merkle root commitment step.
 #[derive(Debug, Clone)]
 pub struct ProofAttestation {
     pub vault_id: String,
@@ -17,16 +20,22 @@ pub struct ProofAttestation {
     pub timestamp: u64,
 }
 
-/// Builds a ZK-bound attestation from a verified proof
+/// Builds a ZK-bound attestation from a normalized proof
+/// 
+/// This function performs the final commitment step by hashing:
+/// - vault ID
+/// - token type
+/// - vault owner's identity hash
+/// - zk_root (circuit commitment root)
+/// - timestamp (UTC)
 pub fn build_attestation(proof: &NormalizedProof, zk_root: &str) -> ProofAttestation {
     let timestamp = Utc::now().timestamp() as u64;
 
-    // Build poseidon hash commitment
     let attestation_hash = poseidon_hash(&[
         &proof.vault_id,
         &proof.token,
         &proof.owner_hash,
-        &zk_root.to_string(),
+        zk_root,
         &timestamp.to_string(),
     ]);
 

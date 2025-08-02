@@ -1,9 +1,9 @@
-// poseidon_utils.rs
-// Domex validator-side Poseidon hash utilities (Ponkey2 + Pasta)
-// Used to recompute zk onboarding identity hashes and verify lock-script bindings
+// Domex :: poseidon_utils.rs
+// Validator-side Poseidon hash utilities (Plonky2 + Pasta)
+// Used for identity hashing, vault binding, and withdrawal verification.
 
 use pasta_curves::Fp;
-use ponkey2_poseidon::PoseidonHasher;
+use plonky2_poseidon::PoseidonHasher;
 
 /// Converts a 32-byte field-safe input to Pasta Fp
 pub fn bytes_to_fp(input: &[u8; 32]) -> Fp {
@@ -25,8 +25,8 @@ pub fn recompute_identity_hash_from_fp(
     hasher.hash(&[sk_fp, vault_fp, node_fp])
 }
 
-/// Optional: Recompute lock-script hash for onchain_guarded mode
-/// Poseidon(sk || lock_script_hash || withdraw_amount)
+/// Recomputes Poseidon(sk || lock_script_hash || withdraw_amount)
+/// for off-chain guarded withdrawals
 pub fn recompute_lock_withdraw_hash(
     sk_fp: Fp,
     script_hash_fp: Fp,
@@ -36,7 +36,7 @@ pub fn recompute_lock_withdraw_hash(
     hasher.hash(&[sk_fp, script_hash_fp, amount_fp])
 }
 
-/// Verifies a standard identity hash from onboarding intent
+/// Verifies identity hash against known expected value
 pub fn verify_identity_hash(
     expected_hash: Fp,
     sk_fp: Fp,
@@ -49,7 +49,7 @@ pub fn verify_identity_hash(
     expected_hash == recomputed
 }
 
-/// Verifies a withdrawal-mode script hash binding (off-chain wallet lock)
+/// Verifies script-bound withdrawal hash
 pub fn verify_lock_withdraw_hash(
     expected_hash: Fp,
     sk_fp: Fp,

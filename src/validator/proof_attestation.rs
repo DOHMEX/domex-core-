@@ -1,8 +1,8 @@
 // Domex :: validator/proof_attestation.rs
-// Signs zk_root and prepares validator attestation for 301-node quorum
+// Signs zk_root and prepares validator attestation for 301-node quorum using Poseidon-based hashing
 
 use crate::types::{BatchAggregateResult, ProofAttestation};
-use crate::utils::{poseidon_hash, sign_message};
+use crate::utils::{poseidon_hash, poseidon_sign}; // <- Quantum-resistant signing
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Builds a validator attestation over a verified zk_root batch.
@@ -13,15 +13,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub fn build_attestation(
     aggregated: &BatchAggregateResult,
     validator_id: &str,   // Poseidon(sk || zk_node_id)
-    validator_sk: &str,   // Private signing key for this validator
+    validator_sk: &[u8; 32], // Private key used in Poseidon-native signing
 ) -> ProofAttestation {
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("System time is before UNIX epoch")
         .as_secs();
 
-    // Construct the attestation message deterministically
-    // Fields must match the order and format of on-chain verifier
+    // Construct deterministic message
     let message = format!(
         "{}|{}|{}|{}|{}|{}",
         aggregated.zk_root,
@@ -32,13 +31,12 @@ pub fn build_attestation(
         timestamp
     );
 
-    // Compute the Poseidon hash of the message content
+    // Hash the message using Poseidon
     let attestation_hash = poseidon_hash(&message);
 
-    // Sign the hash with validator private key (can use Poseidon-based sig or BLS/Groth in future)
-    let signature = sign_message(validator_sk, &attestation_hash);
+    // Sign the hash using Poseidon-based scheme (quantum-resistant placeholder)
+    let signature = poseidon_sign(validator_sk, &attestation_hash);
 
-    // Return completed attestation
     ProofAttestation {
         zk_root: aggregated.zk_root.clone(),
         validator_id: validator_id.to_string(),

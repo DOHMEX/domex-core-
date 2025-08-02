@@ -1,12 +1,12 @@
 // ===============================================================
-// zk/merkle.rs : Merkle Tree Verification using Poseidon Hash
-// ============================================================
+// zk/merkle.rs — Domex Merkle Tree Verification using Ponkey2 + Pasta Poseidon
+// ===============================================================
 
-use plonky2_field::goldilocks_field::GoldilocksField;
-use plonky2_hash::poseidon::{PoseidonHash, poseidon_hash};
+use pasta_curves::Fp;
+use ponkey2_poseidon::PoseidonHasher;
 use serde::{Deserialize, Serialize};
 
-/// Merkle root delta (used in ZK circuit)
+/// Merkle root delta (used in ZK circuit context)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MerkleDelta {
     pub before_root: String,
@@ -14,49 +14,45 @@ pub struct MerkleDelta {
     pub affected_leaf: String,
 }
 
-/// Verifies that a given leaf belongs to a Merkle root using a Poseidon-based proof path.
-/// 
-/// Inputs are expected as hex strings; they are converted into field elements internally.
-/// Assumes binary Merkle tree (left/right based on index parity).
+/// Verifies that a given leaf belongs to a Merkle root using a Poseidon-based Merkle proof.
+/// All inputs are hex strings encoded from Pasta Fp field elements.
 pub fn verify_merkle_proof(
-    leaf: &str,
-    root: &str,
+    leaf_hex: &str,
+    root_hex: &str,
     path: &[String],
     mut index: usize,
 ) -> bool {
-    let mut current = leaf.to_string();
+    let mut current = hex_to_fp(leaf_hex);
 
-    for sibling in path {
+    for sibling_hex in path {
+        let sibling = hex_to_fp(sibling_hex);
         let combined = if index % 2 == 0 {
-            poseidon_hash_pair(&current, sibling)
+            hash_pair(current, sibling)
         } else {
-            poseidon_hash_pair(sibling, &current)
+            hash_pair(sibling, current)
         };
         current = combined;
         index /= 2;
     }
 
-    current == root
+    current == hex_to_fp(root_hex)
 }
 
-/// Uses Plonky2 Poseidon to hash two hex strings.
-fn poseidon_hash_pair(left: &str, right: &str) -> String {
-    let left_field = string_to_field(left);
-    let right_field = string_to_field(right);
-
-    let result: [GoldilocksField; 1] = poseidon_hash::<GoldilocksField, 2>([left_field, right_field]);
-    field_to_hex(&result[0])
+/// Hashes two Pasta Fp values using Poseidon (Ponkey2-compatible)
+fn hash_pair(left: Fp, right: Fp) -> Fp {
+    let mut hasher = PoseidonHasher::new();
+    hasher.hash(&[left, right])
 }
 
-/// Converts hex or string to Goldilocks field element.
-fn string_to_field(input: &str) -> GoldilocksField {
-    // Convert from hex string → u64 → field
-    let cleaned = input.trim_start_matches("0x");
-    let val = u64::from_str_radix(cleaned, 16).unwrap_or(0);
-    GoldilocksField::from_canonical_u64(val)
+/// Converts a hex string into a Pasta field element (Fp)
+fn hex_to_fp(hex_str: &str) -> Fp {
+    let cleaned = hex_str.trim_start_matches("0x");
+    let mut bytes = [0u8; 32];
+    hex::decode_to_slice(cleaned, &mut bytes[..]).expect("Invalid hex input");
+    Fp::from_bytes(&bytes).expect("Invalid Pasta field element")
 }
 
-/// Converts field element back to hex string.
-fn field_to_hex(field: &GoldilocksField) -> String {
-    format!("{:x}", field.0)
+/// Converts Fp field element into hex string
+pub fn fp_to_hex(fp: &Fp) -> String {
+    hex::encode(fp.to_bytes())
 }

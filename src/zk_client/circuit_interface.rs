@@ -1,52 +1,53 @@
-// circuit_interface.rs
-// Interface to Domex zk prover (Groth16 or Plonk) for onboarding proof
+// ===============================
+// zk_client/circuit_interface.rs : Domex ZK Prover SDK (Ponkey2 + Pasta)
+// ===============================
 
 use crate::types::zk_client::{ZkOnboardingPublicInputs, ZkPrivateInput};
+use crate::poseidon_utils::{u64_to_fp, bytes_to_fp};
+use ponkey2_backend::generate_ponkey2_onboarding_proof;
 use pasta_curves::Fp;
 
-/// Resulting zk proof — opaque bytes to be sent to Domex validators
+/// ZK proof output type — opaque bytes to be submitted to Domex validators
 pub type ZkProofBytes = Vec<u8>;
 
-/// Errors returned if zk proof generation fails
+/// SDK-level errors returned by ZK proof builder
 #[derive(Debug)]
 pub enum ZkProverError {
     InvalidSecretKey,
-    CircuitSetupError,
+    InvalidNodeId,
     ProofGenerationFailed,
 }
 
-/// Main interface to the Domex zk-SNARK prover
+/// Builds a Ponkey2-based ZK onboarding proof from private & public inputs
 pub fn run_zk_prover(
     private_input: &ZkPrivateInput,
     public_input: &ZkOnboardingPublicInputs,
 ) -> Result<ZkProofBytes, ZkProverError> {
     // ============================
-    // 1. Format inputs for the circuit
+    // 1. Convert private inputs to field elements
     // ============================
 
-    let sk_field = Fp::from_bytes(&private_input.sk_bytes)
+    let sk_fp = Fp::from_bytes(&private_input.sk_bytes)
         .ok_or(ZkProverError::InvalidSecretKey)?;
 
-    // Here you would pass all values into the real ZK circuit builder.
-    // In production, this should call ark-groth16 or halo2 backend via wrapper.
+    let vault_fp = u64_to_fp(public_input.vault_id);
+    let node_fp = bytes_to_fp(&public_input.zk_node_id);
 
     // ============================
-    // 2. Call to actual ZK circuit (no placeholder!)
+    // 2. Call Ponkey2 circuit prover (no placeholder)
     // ============================
 
-    let proof_bytes = domex_zk_backend::generate_onboarding_proof(
-        sk_field,
-        public_input.vault_id,
-        public_input.zk_node_id,
-        public_input.pk_x,
-        public_input.pk_y,
+    let proof_bytes = generate_ponkey2_onboarding_proof(
+        sk_fp,
+        vault_fp,
+        node_fp,
         public_input.identity_hash,
         &public_input.deposit_chain,
         &public_input.deposit_tx_hash,
     ).map_err(|_| ZkProverError::ProofGenerationFailed)?;
 
     // ============================
-    // 3. Return opaque proof
+    // 3. Return raw proof to submit to Domex validators
     // ============================
 
     Ok(proof_bytes)

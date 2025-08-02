@@ -3,9 +3,9 @@
 // ===============================
 
 use crate::types::zk_client::ZkOnboardingPublicInputs;
+use crate::types::circuit_interface::{Ponkey2ProofBytes, CircuitInputs};
+use crate::validator::ponkey2_verifier::verify_ponkey2_proof;
 use crate::hash_utils::{poseidon_hash, u64_to_fp, bytes_to_fp};
-use crate::types::circuit_interface::{ZkProofBytes, CircuitInputs};
-use crate::validator::circuit_verifier_backend::verify_groth16_proof;
 use pasta_curves::Fp;
 
 /// Final result of a ZK onboarding verification
@@ -28,12 +28,12 @@ pub enum ZkVerifierError {
     VerificationBackendError(String),
 }
 
-/// Verifies ZK onboarding proof using Groth16 + Pasta + Ponkey2 (quantum-safe)
+/// Verifies ZK onboarding proof using Ponkey2 + Pasta + Poseidon
 pub fn verify_onboarding_proof(
-    proof_bytes: &ZkProofBytes,
+    proof_bytes: &Ponkey2ProofBytes,
     public_inputs: &ZkOnboardingPublicInputs,
 ) -> Result<OnboardingVerificationResult, ZkVerifierError> {
-    // === Phase 1: Public input validation ===
+    // === Phase 1: Input checks ===
     if public_inputs.identity_hash.is_zero() {
         return Err(ZkVerifierError::UnsafeZeroIdentity);
     }
@@ -42,11 +42,11 @@ pub fn verify_onboarding_proof(
         return Err(ZkVerifierError::MissingOrInvalidWithdrawalMode);
     }
 
-    // === Phase 2: Proof validation (Groth16 over Ponkey2 circuits) ===
-    verify_groth16_proof(proof_bytes, public_inputs)
+    // === Phase 2: Native Ponkey2 proof validation ===
+    verify_ponkey2_proof(proof_bytes, public_inputs)
         .map_err(|e| ZkVerifierError::VerificationBackendError(format!("{:?}", e)))?;
 
-    // === Phase 3: Mode-specific checks ===
+    // === Phase 3: Withdrawal rules ===
     match public_inputs.withdrawal_mode.as_deref() {
         Some("strict_approved_only") => Ok(OnboardingVerificationResult::Valid),
 

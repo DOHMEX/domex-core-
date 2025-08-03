@@ -1,11 +1,11 @@
 // ===============================
-// zk_client/circuit_interface.rs : Domex ZK Prover SDK placeholder for punkey2 (Plonky2 + Pasta)
+// zk_client/circuit_interface.rs : Domex ZK Prover SDK (Plonky2 + Goldilocks)
 // ===============================
 
 use crate::types::zk_client::{ZkOnboardingPublicInputs, ZkPrivateInput};
-use crate::poseidon_utils::{u64_to_fp, bytes_to_fp};
+use crate::poseidon_utils::{u64_to_goldilocks, bytes_to_goldilocks};
+use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2_backend::generate_ponkey2_onboarding_proof;
-use pasta_curves::Fp;
 
 /// ZK proof output type — opaque bytes to be submitted to Domex validators
 pub type ZkProofBytes = Vec<u8>;
@@ -24,17 +24,18 @@ pub fn run_zk_prover(
     public_input: &ZkOnboardingPublicInputs,
 ) -> Result<ZkProofBytes, ZkProverError> {
     // ============================
-    // 1. Convert private inputs to field elements
+    // 1. Convert private inputs to Goldilocks field elements
     // ============================
 
-    let sk_fp = Fp::from_bytes(&private_input.sk_bytes)
-        .ok_or(ZkProverError::InvalidSecretKey)?;
+    let sk_fp = GoldilocksField::from_canonical_u64(
+        u64::from_le_bytes(private_input.sk_bytes[..8].try_into().unwrap_or_default())
+    );
 
-    let vault_fp = u64_to_fp(public_input.vault_id);
-    let node_fp = bytes_to_fp(&public_input.zk_node_id);
+    let vault_fp = u64_to_goldilocks(public_input.vault_id);
+    let node_fp = bytes_to_goldilocks(&public_input.zk_node_id);
 
     // ============================
-    // 2. Call Ponkey2 circuit prover (no placeholder)
+    // 2. Call Ponkey2 circuit prover (Plonky2 over Goldilocks)
     // ============================
 
     let proof_bytes = generate_ponkey2_onboarding_proof(

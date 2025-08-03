@@ -1,10 +1,10 @@
 // ===============================
-// zk_client/circuit_interface.rs : Domex ZK Prover SDK (Ponkey2 + Pasta)
+// zk_client/circuit_interface.rs : Domex ZK Prover SDK placeholder for punkey2 (Plonky2 + Pasta)
 // ===============================
 
 use crate::types::zk_client::{ZkOnboardingPublicInputs, ZkPrivateInput};
 use crate::poseidon_utils::{u64_to_fp, bytes_to_fp};
-use ponkey2_backend::generate_ponkey2_onboarding_proof;
+use plonky2_backend::generate_ponkey2_onboarding_proof;
 use pasta_curves::Fp;
 
 /// ZK proof output type — opaque bytes to be submitted to Domex validators

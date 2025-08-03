@@ -1,7 +1,7 @@
 // ============================================
 // hash_utils.rs — Domex Poseidon Hash Helpers
 // ============================================
-// Hashing and field encoding utilities using Ponkey2 + Pasta curves.
+// Hashing and field encoding utilities using Ponky2
 // Supports identity, delegation, and withdrawal hashing.
 
 use plonky2::field::goldilocks_field::GoldilocksField;

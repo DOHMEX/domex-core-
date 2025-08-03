@@ -1,33 +1,35 @@
 // ====================================================
-// client_identity.rs — Domex ZK Identity Hash placeholder for ponkey2 (Plonky2 + Pasta)
+// client_identity.rs — Domex ZK Identity Hash (Plonky2 + Goldilocks + Poseidon)
 // Computes Poseidon(sk || vault_id || zk_node_id)
 // ====================================================
 
-use plonky2_poseidon::PoseidonHasher;
-use pasta_curves::Fp;
+use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::hash::poseidon::{PoseidonHash, poseidon_hash};
 
-/// Converts a 32-byte array to a Pasta field element
-pub fn bytes_to_fp(input: &[u8; 32]) -> Fp {
-    Fp::from_bytes(input).expect("Invalid Pasta field element")
+/// Converts a 32-byte array to a GoldilocksField element by truncation.
+/// NOTE: GoldilocksField is only 64 bits, so we map from lower 8 bytes.
+pub fn bytes32_to_field(input: &[u8; 32]) -> GoldilocksField {
+    let mut bytes = [0u8; 8];
+    bytes.copy_from_slice(&input[..8]); // Truncate to 64-bit
+    GoldilocksField::from_canonical_u64(u64::from_le_bytes(bytes))
 }
 
-/// Converts a u64 vault ID to a Pasta field element
-pub fn u64_to_fp(value: u64) -> Fp {
-    Fp::from(value)
+/// Converts a u64 to a GoldilocksField element
+pub fn u64_to_field(value: u64) -> GoldilocksField {
+    GoldilocksField::from_canonical_u64(value)
 }
 
-/// Computes Poseidon(sk || vault_id || zk_node_id) as Fp field element
+/// Computes Poseidon(sk || vault_id || zk_node_id) using GoldilocksField
 pub fn compute_identity_hash(
     sk_bytes: &[u8; 32],
     vault_id: u64,
     zk_node_id_bytes: &[u8; 32],
-) -> Fp {
-    let sk_fp = bytes_to_fp(sk_bytes);
-    let vault_fp = u64_to_fp(vault_id);
-    let node_fp = bytes_to_fp(zk_node_id_bytes);
+) -> GoldilocksField {
+    let sk_field = bytes32_to_field(sk_bytes);
+    let vault_field = u64_to_field(vault_id);
+    let node_field = bytes32_to_field(zk_node_id_bytes);
 
-    let mut hasher = PoseidonHasher::new();
-    hasher.hash(&[sk_fp, vault_fp, node_fp])
+    poseidon_hash([sk_field, vault_field, node_field])
 }
 
 #[cfg(test)]
@@ -41,6 +43,6 @@ mod tests {
         let dummy_node_id = [0x22u8; 32];
 
         let identity_hash = compute_identity_hash(&dummy_sk, dummy_vault_id, &dummy_node_id);
-        println!("Computed Identity Hash: {:?}", identity_hash.to_bytes());
+        println!("Computed Identity Hash: {:?}", identity_hash.0);
     }
 }

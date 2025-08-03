@@ -1,9 +1,9 @@
 // ====================================================
-// client_identity.rs — Domex ZK Identity Hash (Ponkey2 + Pasta)
+// client_identity.rs — Domex ZK Identity Hash placeholder for ponkey2 (Plonky2 + Pasta)
 // Computes Poseidon(sk || vault_id || zk_node_id)
 // ====================================================
 
-use ponkey2_poseidon::PoseidonHasher;
+use plonky2_poseidon::PoseidonHasher;
 use pasta_curves::Fp;
 
 /// Converts a 32-byte array to a Pasta field element

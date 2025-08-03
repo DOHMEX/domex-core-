@@ -5,7 +5,7 @@
 // Supports identity, delegation, and withdrawal hashing.
 
 use pasta_curves::Fp;
-use ponkey2_poseidon::PoseidonHasher;
+use plonky2_poseidon::PoseidonHasher;
 
 /// Converts a 32-byte array to a Pasta Fp field element.
 /// Panics if input is invalid (non-canonical).

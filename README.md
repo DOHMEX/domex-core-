@@ -62,7 +62,7 @@ Domex never holds custody, validators only verify. Bridges are external scripts,
 
 ## 🔗 Resources
 
-- 📜 **Whitepaper**: [View PDF](https://drive.google.com/file/d/1sRQ8050Pi_HmoTVlU0yaIoionKzciMew/view?usp=drive_link)  
+- 📜 **Whitepaper**: [View PDF](https://drive.google.com/file/d/1Ww6Wp0GTcY8wgzWm2V2STsVtKSLaVbdu/view?usp=drive_link)  
 - 🎥 **Demo Video**: [YouTube](https://www.youtube.com/watch?v=h6hQoVIQCpM)  
 - 🧠 **ETHGlobal Showcase**: [Domex Protocol](https://ethglobal.com/showcase/domex-protocol-qh6zh)
 

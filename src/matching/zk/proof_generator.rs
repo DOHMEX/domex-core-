@@ -6,7 +6,7 @@ use crate::types::TradeResult;
 use crate::zk::proof_input::build_proof_input;
 use crate::types::zk::ZkProofInput;
 use crate::zk::merkle::MerkleDelta;
-use crate::zk::ponkey2_backend::generate_ponkey2_proof;
+use crate::zk::plonky2_backend::generate_plonky2_proof;
 
 use std::fs::File;
 use std::io::Write;
@@ -18,7 +18,7 @@ pub fn generate_and_submit_proof(trade: &TradeResult) -> Result<(), &'static str
 
     // Build the ZK proof using Domex-native Ponkey2 backend
     let proof_bytes = generate_ponkey2_proof(&zk_input)
-        .map_err(|_| "Failed to generate Ponkey2 proof")?;
+        .map_err(|_| "Failed to generate Plonky2 proof")?;
 
     // Submit proof to validator (for now writes to disk — production uses broadcast)
     submit_to_validator(&proof_bytes)?;

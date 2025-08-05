@@ -1,8 +1,6 @@
 // ==========================================================
-// deposit_address.rs — Domex Deterministic Deposit Address
+// deposit_address.rs — Domex Deterministic Deposit Address (w/ Delegation)
 // ==========================================================
-// Generates vault-specific, identity-bound deposit addresses.
-// Fully deterministic: hash(Poseidon(pubkey) || token_type)
 
 use crate::crypto::poseidon_hasher::PoseidonHasher;
 use crate::types::common::{Token, ZkIdentity, DepositAddress};
@@ -12,32 +10,30 @@ use crate::types::common::{Token, ZkIdentity, DepositAddress};
 pub enum AddressGenerationError {
     InvalidIdentityLength,
     EmptyToken,
+    InvalidDelegatePubkeyLength,
 }
 
-/// Generates a deterministic deposit address from a user's Poseidon identity + token.
+/// Generates a deposit address based on:
+/// Poseidon(pubkey) || token_type || delegate_pubkey
 ///
-/// Formula:
-///     hash(Poseidon(pubkey) || token_type)
-///
-/// This ensures:
-/// - Same identity + token = same address
-/// - No collisions across identities or tokens
+/// This ensures that only a specific delegate is authorized to manage the deposit.
 ///
 /// # Arguments:
-/// - `poseidon_identity`: 32-byte identity hash (already Poseidon(pubkey))
-/// - `token_type`: Token ticker string (e.g. "BTC", "ETH")
+/// - `poseidon_identity`: 32-byte identity hash (Poseidon(pubkey))
+/// - `token_type`: Token ticker (e.g., "BTC")
+/// - `delegate_pubkey`: 32-byte public key of the delegate wallet
 ///
 /// # Returns:
-/// - `Ok(DepositAddress)` if valid
-/// - `Err(AddressGenerationError)` if invalid
-pub fn generate_deposit_address(
+/// - Deterministic deposit address unique to this (identity, token, delegate) combination
+pub fn generate_deposit_address_with_delegate(
     poseidon_identity: &ZkIdentity,
     token_type: &Token,
+    delegate_pubkey: &[u8; 32],
 ) -> Result<DepositAddress, AddressGenerationError> {
     let id_bytes = poseidon_identity.as_bytes();
     let token_bytes = token_type.as_bytes();
 
-    // === Validation ===
+    // === Input Validation ===
     if id_bytes.len() != 32 {
         return Err(AddressGenerationError::InvalidIdentityLength);
     }
@@ -45,9 +41,9 @@ pub fn generate_deposit_address(
         return Err(AddressGenerationError::EmptyToken);
     }
 
-    // === Deterministic Construction ===
-    let combined = [id_bytes, token_bytes].concat();  // Poseidon(pubkey) || token_type
-    let hashed = PoseidonHasher::hash(&combined);     // 32-byte hash result
+    // === Combine Poseidon(pubkey) || token_type || delegate_pubkey ===
+    let combined = [id_bytes, token_bytes, delegate_pubkey].concat();
+    let hashed = PoseidonHasher::hash(&combined);
 
-    Ok(DepositAddress::from_hash(hashed))             // Maps to BTC/SOL/ETH-format address
+    Ok(DepositAddress::from_hash(hashed))
 }

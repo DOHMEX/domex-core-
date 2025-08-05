@@ -1,8 +1,8 @@
-// ============================================
-// hash_utils.rs — Domex Poseidon Hash Helpers
-// ============================================
-// Hashing and field encoding utilities using Plonky2.
-// Supports identity, delegation, vault proofs, and withdrawal hashing.
+// ========================================================
+// hash_utils.rs — Domex Poseidon Hash Helpers (Plonky2)
+// ========================================================
+// Safe field encoding utilities for ZK inputs & hashing.
+// Fully compatible with Plonky2 + Polaris + GoldilocksField.
 
 use plonky2::field::goldilocks_field::GoldilocksField;
 
@@ -17,17 +17,17 @@ pub fn u64_to_goldilocks(n: u64) -> GoldilocksField {
 }
 
 /// Converts the first 8 bytes of a slice into a Goldilocks field element.
+/// If input is shorter than 8 bytes, it is zero-padded (little-endian).
 ///
-/// - If the slice is shorter than 8 bytes, it is zero-padded.
-/// - If longer, only the first 8 bytes are used (little-endian).
+/// This is safe for hashes, addresses, pubkeys, etc.
 ///
 /// # Example
 /// ```
-/// let hash = [1u8; 32]; // or tx_hash, identity hash, etc.
-/// let field = bytes_to_goldilocks(&hash);
+/// let field = bytes_to_goldilocks(&[0xaa; 32]);
 /// ```
 pub fn bytes_to_goldilocks(bytes: &[u8]) -> GoldilocksField {
     let mut buf = [0u8; 8];
-    buf[..bytes.len().min(8)].copy_from_slice(&bytes[..bytes.len().min(8)]);
+    let len = bytes.len().min(8);
+    buf[..len].copy_from_slice(&bytes[..len]);
     GoldilocksField::from_canonical_u64(u64::from_le_bytes(buf))
 }

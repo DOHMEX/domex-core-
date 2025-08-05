@@ -1,6 +1,10 @@
-// Domex :: btc_withdraw_builder.rs
-// Constructs raw Bitcoin transactions from Domex vault UTXOs for withdrawal execution
-// Uses standard P2WSH format and Poseidon-locked vault scripts
+// ==========================================================
+// btc_withdraw_builder.rs — Domex BTC Vault Withdrawal Builder
+// ==========================================================
+//
+// Constructs raw Bitcoin transactions from Domex vault UTXOs.
+// Supports P2WSH, ZK unlocks, fee logic, and change handling.
+// Prepares an unsigned tx for ZK proof-based signing.
 
 use bitcoin::blockdata::transaction::{Transaction, TxIn, TxOut, OutPoint};
 use bitcoin::blockdata::script::Script;
@@ -38,7 +42,7 @@ pub fn build_btc_withdrawal_tx(
     change_address: &Address,
     fee_sat: u64,
 ) -> Result<Transaction, String> {
-    // 1. Select UTXOs that can cover the withdrawal + fee
+    // === 1. Select UTXOs ===
     let mut selected = vec![];
     let mut total = 0u64;
 
@@ -54,7 +58,7 @@ pub fn build_btc_withdrawal_tx(
         return Err("Insufficient funds in vault".into());
     }
 
-    // 2. Construct inputs
+    // === 2. Construct inputs ===
     let inputs: Vec<TxIn> = selected
         .iter()
         .map(|utxo| TxIn {
@@ -64,17 +68,19 @@ pub fn build_btc_withdrawal_tx(
             },
             script_sig: Script::new(), // P2WSH: empty
             sequence: 0xffffffff,
-            witness: vec![],           // Will be filled by the off-chain proof system
+            witness: vec![],           // To be filled by ZK unlock
         })
         .collect();
 
-    // 3. Construct outputs (recipient + optional change)
+    // === 3. Construct outputs ===
     let mut outputs = vec![TxOut {
         value: amount_sat,
         script_pubkey: recipient.script_pubkey(),
     }];
 
     let change = total.saturating_sub(amount_sat + fee_sat);
+
+    // Discard dust (below 546 sats)
     if change >= 546 {
         outputs.push(TxOut {
             value: change,
@@ -82,7 +88,10 @@ pub fn build_btc_withdrawal_tx(
         });
     }
 
-    // 4. Build the unsigned transaction
+    // Optional: sort outputs for deterministic ordering (BIP69-style)
+    outputs.sort_by_key(|o| o.value);
+
+    // === 4. Build the unsigned transaction ===
     let tx = Transaction {
         version: 2,
         lock_time: 0,

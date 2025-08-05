@@ -13,16 +13,29 @@ pub struct ColdDeposit {
     pub tx_hash: String,
     pub poseidon_identity: ZkIdentity,
     pub claimed: bool,
+    pub autovault: bool,           // ✅ Indicates whether this deposit is eligible for proof-free vault onboarding
+    pub timestamp: Option<u64>,    // ✅ Optional UNIX time (seconds) when the deposit was detected
 }
 
 impl ColdDeposit {
-    /// Creates a new unclaimed ColdDeposit record
+    /// Creates a new unclaimed ColdDeposit record.
+    ///
+    /// # Arguments
+    /// - `token`: Token being deposited (e.g., BTC, ETH)
+    /// - `amount`: Amount of the token detected
+    /// - `deposit_address`: Script-derived address the user sent funds to
+    /// - `tx_hash`: The native chain transaction hash
+    /// - `poseidon_identity`: Identity hash of the user (Poseidon(pubkey))
+    /// - `autovault`: If true, vault can be auto-filled without ZK onboarding proof
+    /// - `timestamp`: Optional UNIX timestamp of detection
     pub fn new(
         token: Token,
         amount: f64,
         deposit_address: DepositAddress,
         tx_hash: String,
         poseidon_identity: ZkIdentity,
+        autovault: bool,
+        timestamp: Option<u64>,
     ) -> Self {
         Self {
             token,
@@ -31,10 +44,12 @@ impl ColdDeposit {
             tx_hash,
             poseidon_identity,
             claimed: false,
+            autovault,
+            timestamp,
         }
     }
 
-    /// Marks this deposit as claimed (after successful onboarding proof)
+    /// Marks this deposit as claimed (after successful onboarding or AutoVault issuance)
     pub fn mark_claimed(&mut self) {
         self.claimed = true;
     }

@@ -1,16 +1,17 @@
 // ====================================================
 // client_identity.rs — Domex ZK Identity Hash (Plonky2 + Goldilocks + Poseidon)
-// Computes Poseidon(sk || vault_id || zk_node_id)
 // ====================================================
+// Computes: Poseidon(sk || vault_id || zk_node_id)
+// Used for vault-bound identity commitment and proof binding.
 
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::hash::poseidon::poseidon_hash;
 
-/// Converts the first 8 bytes of a 32-byte input to a Goldilocks field element.
-/// Used to safely embed a secret key or node ID into ZK circuits.
+/// Converts the first 8 bytes of a 32-byte input into a Goldilocks field element.
+/// This safely maps secret keys or node IDs into the Plonky2-compatible field space.
 pub fn bytes32_to_field(input: &[u8; 32]) -> GoldilocksField {
     let mut buf = [0u8; 8];
-    buf.copy_from_slice(&input[..8]); // Take least-significant 64 bits
+    buf.copy_from_slice(&input[..8]);
     GoldilocksField::from_canonical_u64(u64::from_le_bytes(buf))
 }
 
@@ -19,12 +20,18 @@ pub fn u64_to_field(value: u64) -> GoldilocksField {
     GoldilocksField::from_canonical_u64(value)
 }
 
-/// Computes the Poseidon identity hash: Poseidon(sk || vault_id || zk_node_id)
+/// Computes the Poseidon-based identity hash:
+///     Poseidon(sk || vault_id || zk_node_id)
 ///
-/// This forms the ZK user identity in Domex and is used for:
-/// - Vault ownership
-/// - Deposit address derivation
-/// - Withdrawal validation
+/// This hash is used to bind ZK identity to vault access rights.
+///
+/// # Parameters
+/// - `sk_bytes`: 32-byte user secret key (private input)
+/// - `vault_id`: Vault to which the identity is scoped
+/// - `zk_node_id_bytes`: 32-byte zk-node identity
+///
+/// # Returns
+/// - Poseidon identity hash as GoldilocksField
 pub fn compute_poseidon_identity(
     sk_bytes: &[u8; 32],
     vault_id: u64,

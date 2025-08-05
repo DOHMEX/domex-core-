@@ -1,64 +1,41 @@
-// ==========================================================
-// btc_withdraw_builder.rs — Domex BTC Vault Withdrawal Builder
-// ==========================================================
-//
-// Constructs raw Bitcoin transactions from Domex vault UTXOs.
-// Supports P2WSH, ZK unlocks, fee logic, and change handling.
-// Prepares an unsigned tx for ZK proof-based signing.
-
-use bitcoin::blockdata::transaction::{Transaction, TxIn, TxOut, OutPoint};
-use bitcoin::blockdata::script::Script;
-use bitcoin::util::amount::Amount;
-use bitcoin::consensus::encode::serialize;
-use bitcoin::Network;
-use bitcoin::Address;
-use bitcoin::Txid;
-
-/// Represents a single unspent BTC vault output
-#[derive(Debug, Clone)]
-pub struct VaultUtxo {
-    pub txid: Txid,
-    pub vout: u32,
-    pub value_sat: u64,
-    pub script_pubkey: Script,
-}
-
-/// Builds a raw Bitcoin withdrawal transaction for the given recipient
-/// using selected UTXOs from a Domex vault
+/// Builds a raw Bitcoin withdrawal transaction to multiple recipients
+/// using selected UTXOs from a Domex vault (supports batching).
 ///
 /// # Arguments
 /// - `utxos`: Available unspent outputs from the vault
-/// - `recipient`: BTC address to receive the funds
-/// - `amount_sat`: Amount to send in satoshis
+/// - `recipients`: Vec of (recipient_address, amount_sat) tuples
 /// - `change_address`: Address to return remaining change (must be vault-controlled)
 /// - `fee_sat`: Network fee in satoshis
 ///
 /// # Returns
 /// Unsigned Bitcoin transaction to be signed and broadcast
-pub fn build_btc_withdrawal_tx(
+pub fn build_btc_withdrawal_tx_batched(
     utxos: &[VaultUtxo],
-    recipient: &Address,
-    amount_sat: u64,
+    recipients: Vec<(Address, u64)>,
     change_address: &Address,
     fee_sat: u64,
 ) -> Result<Transaction, String> {
-    // === 1. Select UTXOs ===
+    // 1. Compute total output amount
+    let total_output: u64 = recipients.iter().map(|(_, amt)| *amt).sum();
+    let required_total = total_output + fee_sat;
+
+    // 2. Select UTXOs that cover the required amount
     let mut selected = vec![];
-    let mut total = 0u64;
+    let mut total_input = 0u64;
 
     for utxo in utxos {
         selected.push(utxo.clone());
-        total += utxo.value_sat;
-        if total >= amount_sat + fee_sat {
+        total_input += utxo.value_sat;
+        if total_input >= required_total {
             break;
         }
     }
 
-    if total < amount_sat + fee_sat {
-        return Err("Insufficient funds in vault".into());
+    if total_input < required_total {
+        return Err("Insufficient funds in vault for batched withdrawal".into());
     }
 
-    // === 2. Construct inputs ===
+    // 3. Construct transaction inputs
     let inputs: Vec<TxIn> = selected
         .iter()
         .map(|utxo| TxIn {
@@ -66,21 +43,23 @@ pub fn build_btc_withdrawal_tx(
                 txid: utxo.txid,
                 vout: utxo.vout,
             },
-            script_sig: Script::new(), // P2WSH: empty
+            script_sig: Script::new(), // P2WSH
             sequence: 0xffffffff,
-            witness: vec![],           // To be filled by ZK unlock
+            witness: vec![],           // Filled later with ZK proof
         })
         .collect();
 
-    // === 3. Construct outputs ===
-    let mut outputs = vec![TxOut {
-        value: amount_sat,
-        script_pubkey: recipient.script_pubkey(),
-    }];
+    // 4. Construct outputs: recipients
+    let mut outputs: Vec<TxOut> = recipients
+        .iter()
+        .map(|(addr, amt)| TxOut {
+            value: *amt,
+            script_pubkey: addr.script_pubkey(),
+        })
+        .collect();
 
-    let change = total.saturating_sub(amount_sat + fee_sat);
-
-    // Discard dust (below 546 sats)
+    // 5. Add change output if needed
+    let change = total_input.saturating_sub(required_total);
     if change >= 546 {
         outputs.push(TxOut {
             value: change,
@@ -88,10 +67,7 @@ pub fn build_btc_withdrawal_tx(
         });
     }
 
-    // Optional: sort outputs for deterministic ordering (BIP69-style)
-    outputs.sort_by_key(|o| o.value);
-
-    // === 4. Build the unsigned transaction ===
+    // 6. Final transaction
     let tx = Transaction {
         version: 2,
         lock_time: 0,

@@ -1,35 +1,31 @@
-// ==============================================
-// deposit_address.rs — Domex Identity Key Deriver (Plonky2 Compatible)
-// ==============================================
-// Derives a deterministic public identity field from a 32-byte secret key
-// using Poseidon hash over GoldilocksField. Used in ZK onboarding.
+// src/zk_client/deposit_address.rs
 
-use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2_poseidon::PoseidonHash;
-use plonky2_poseidon::poseidon_hash;
-use plonky2::field::types::Field;
+use crate::crypto::poseidon_hasher::PoseidonHasher;
+use crate::types::common::{Token, ZkIdentity, DepositAddress};
 
-/// Derives a public key hash from a 32-byte secret key using Poseidon over Goldilocks.
-/// This replaces elliptic curve pubkey (x, y) in Domex under Plonky2.
-pub fn derive_identity_fp(sk_bytes: &[u8; 32]) -> GoldilocksField {
-    // Take first 8 bytes of sk and convert to GoldilocksField
-    let mut buf = [0u8; 8];
-    buf.copy_from_slice(&sk_bytes[..8]);
-    let sk_u64 = u64::from_le_bytes(buf);
-    let sk_field = GoldilocksField::from_canonical_u64(sk_u64);
+/// Generates a deterministic deposit address based on a user's Poseidon identity and token type.
+///
+/// Formula: `hash(Poseidon(pubkey) || token_type)`
+///
+/// This address is used by the deposit watcher script and is guaranteed to be unique
+/// per (user, token) pair. The same identity and token will always produce the same address.
+///
+/// # Arguments
+/// - `poseidon_identity`: A ZK identity already hashed with Poseidon(pubkey)
+/// - `token_type`: The token being deposited (e.g., BTC, ETH, USDT)
+///
+/// # Returns
+/// - A deterministic `DepositAddress` usable on the target native chain (e.g., BTC address)
+pub fn generate_deposit_address(
+    poseidon_identity: &ZkIdentity,
+    token_type: &Token,
+) -> DepositAddress {
+    let id_bytes = poseidon_identity.as_bytes();     // Already Poseidon(pubkey)
+    let token_bytes = token_type.as_bytes();         // e.g., "BTC" → [66, 84, 67]
 
-    // Hash the field to get identity point
-    poseidon_hash([sk_field])
-}
+    let combined = [id_bytes, token_bytes].concat(); // Poseidon(pubkey) || token_type
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+    let hashed = PoseidonHasher::hash(&combined);    // Result: 32-byte hash
 
-    #[test]
-    fn test_identity_hash_derivation() {
-        let sk = [1u8; 32]; // Dummy secret key
-        let identity = derive_identity_fp(&sk);
-        println!("Derived Identity Field (Poseidon over Goldilocks): {:?}", identity);
-    }
+    DepositAddress::from_hash(hashed)                // Convert to chain-specific format
 }

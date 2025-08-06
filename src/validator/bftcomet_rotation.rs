@@ -1,9 +1,15 @@
-// src/validator/bftcomet_rotation.rs
+// ==========================================================
+// bftcomet_rotation.rs — Domex BFT-Comet Validator Rotation
+// ==========================================================
+//
+// Handles validator committee rotation, attestation quorum checks,
+// and majority validator selection via Poseidon-hashed epoch.
+// Used by the 301-attestor system for ZK proof finality.
+//
 
 use std::collections::{HashSet, VecDeque};
 use crate::validator::attestation::ProofAttestation;
-use crate::utils::poseidon_hash;
-use crate::zk_verifier::verify_zk_proof;
+use crate::common::poseidon_utils::poseidon_hash_u64;
 use chrono::Utc;
 
 /// Constants
@@ -14,16 +20,18 @@ pub const FULL_COMMITTEE_SIZE: usize = 301;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Validator {
     pub id: String,               // Poseidon identity or pubkey
-    pub last_active_epoch: u64,   // Last epoch the validator participated in
-    pub stake: u64,               // Validator stake for ranking
+    pub last_active_epoch: u64,  // Last epoch the validator participated in
+    pub stake: u64,              // Validator stake for ranking
+    // Optional: validator_code_hash: Option<String>, // for slashing integrity
 }
 
 /// Committee rotation manager
 pub struct BFTCometRotation {
-    minority_committee: VecDeque<Validator>, // Rotating 300 minority validators
-    majority_validators: HashSet<Validator>, // Validators outside minority with majority stake
-    full_committee: HashSet<Validator>,      // 300 + 1 selected validator (301)
+    minority_committee: VecDeque<Validator>, // Rotating 300 validators
+    majority_validators: HashSet<Validator>, // Eligible global validators
+    full_committee: HashSet<Validator>,      // 300 + 1 = 301 for attestation
     epoch: u64,                              // Current epoch number
+    epoch_start_ts: u64,                     // Timestamp of epoch start
 }
 
 impl BFTCometRotation {
@@ -34,9 +42,8 @@ impl BFTCometRotation {
 
         let mut full_committee = minority_committee.iter().cloned().collect::<HashSet<_>>();
 
-        // Select 1 validator from majority outside minority for full committee
-        if let Some(selected) = majority_validators.iter().find(|v| !full_committee.contains(v)) {
-            full_committee.insert(selected.clone());
+        if let Some(selected) = BFTCometRotation::select_majority_validator(epoch, &majority_validators, &full_committee) {
+            full_committee.insert(selected);
         }
 
         Self {
@@ -44,41 +51,88 @@ impl BFTCometRotation {
             majority_validators,
             full_committee,
             epoch,
+            epoch_start_ts: Utc::now().timestamp() as u64,
         }
     }
 
-    /// Rotate minority committee validators for next epoch
+    /// Selects a deterministic majority validator using Poseidon(epoch)
+    fn select_majority_validator(
+        epoch: u64,
+        majority: &HashSet<Validator>,
+        exclude: &HashSet<Validator>,
+    ) -> Option<Validator> {
+        let seed = poseidon_hash_u64(epoch);
+        let available: Vec<_> = majority.iter().filter(|v| !exclude.contains(v)).cloned().collect();
+        if available.is_empty() {
+            None
+        } else {
+            let index = (seed % available.len() as u64) as usize;
+            Some(available[index].clone())
+        }
+    }
+
+    /// Rotate 1 minority validator to back of queue
     pub fn rotate_minority(&mut self) {
         if let Some(rotated) = self.minority_committee.pop_front() {
             self.minority_committee.push_back(rotated);
         }
     }
 
-    /// Update full committee based on rotated minority + new majority validator
+    /// Update full 301-committee after rotation
     pub fn update_full_committee(&mut self) {
         self.full_committee = self.minority_committee.iter().cloned().collect();
 
-        // Pick a majority validator not already in minority_committee
-        if let Some(selected) = self.majority_validators.iter().find(|v| !self.full_committee.contains(v)) {
-            self.full_committee.insert(selected.clone());
+        if let Some(selected) = Self::select_majority_validator(self.epoch, &self.majority_validators, &self.full_committee) {
+            self.full_committee.insert(selected);
         }
     }
 
-    /// Validate that all 301 validators submitted matching proof attestations
+    /// Return current full 301-member committee
+    pub fn current_committee(&self) -> &HashSet<Validator> {
+        &self.full_committee
+    }
+
+    /// Validates that all 301 attestations match the same attestation hash
     pub fn validate_attestations(&self, attestations: &[ProofAttestation]) -> bool {
         if attestations.len() != FULL_COMMITTEE_SIZE {
             return false;
         }
 
-        // Extract attestation hashes
-        let attestation_hashes: HashSet<_> = attestations.iter().map(|a| &a.attestation_hash).collect();
-
-        // All 301 must match the same attestation hash
-        attestation_hashes.len() == 1
+        let hashes: HashSet<_> = attestations.iter().map(|a| &a.attestation_hash).collect();
+        hashes.len() == 1
     }
 
-    /// Simulate a full epoch step: rotate, update committee, and validate proofs
+    /// Detects and returns validators with mismatched attestation hash
+    pub fn detect_slashable_validators(&self, attestations: &[ProofAttestation]) -> Vec<Validator> {
+        if attestations.len() != FULL_COMMITTEE_SIZE {
+            return vec![];
+        }
+
+        let mut counts = std::collections::HashMap::new();
+        for att in attestations {
+            *counts.entry(&att.attestation_hash).or_insert(0) += 1;
+        }
+
+        let quorum_hash = counts.iter().max_by_key(|(_, count)| *count).map(|(h, _)| *h);
+        if quorum_hash.is_none() {
+            return vec![];
+        }
+
+        attestations.iter().enumerate()
+            .filter_map(|(i, att)| {
+                if &att.attestation_hash != quorum_hash.unwrap() {
+                    self.full_committee.iter().nth(i).cloned()
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    /// Advances to next epoch and verifies new attestations
     pub fn epoch_step(&mut self, attestations: &[ProofAttestation]) -> bool {
+        self.epoch += 1;
+        self.epoch_start_ts = Utc::now().timestamp() as u64;
         self.rotate_minority();
         self.update_full_committee();
 
@@ -105,22 +159,19 @@ mod tests {
 
         let mut rotation = BFTCometRotation::new(minority, majority, 1);
 
-        // Mock attestations all matching hash
         let attestation = ProofAttestation {
-            vault_id: "vault1".to_string(),
-            token: "dBTC".to_string(),
-            size: 10,
-            owner_hash: "ownerhash".to_string(),
-            zk_root: "zkroot".to_string(),
-            attestation_hash: "samehash".to_string(),
+            vault_id: "vault123".into(),
+            token: "dBTC".into(),
+            size: 1000,
+            owner_hash: "poseidon(owner)".into(),
+            zk_root: "poseidon(root)".into(),
+            attestation_hash: "correcthash".into(),
             timestamp: Utc::now().timestamp() as u64,
         };
 
         let attestations = vec![attestation.clone(); FULL_COMMITTEE_SIZE];
 
         assert!(rotation.validate_attestations(&attestations));
-
-        // Run epoch step
         assert!(rotation.epoch_step(&attestations));
     }
 }

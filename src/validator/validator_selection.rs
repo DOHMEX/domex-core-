@@ -140,4 +140,4 @@ mod tests {
         selection.rotate_minority();
         assert_eq!(selection.minority_committee.len(), MINORITY_SIZE);
     }
-                }
+}

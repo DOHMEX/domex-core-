@@ -2,42 +2,53 @@
 // token_config.rs — Domex Token Constants and Burn Recycling Logic
 // ==========================================================
 //
-// Defines DOMEX tokenomics: supply cap, validator mint, burn/recycle flow.
-// Used by the reward engine, fuel verifier, and global validator system.
+// Defines DOMEX tokenomics: total supply, validator mint, fuel burn logic,
+// and reward recycling system. Used by the reward engine, fuel validator,
+// and delegation fee contracts.
 //
 
-/// Base decimals for DOMEX token (1e6 for 6 decimals: like USDC)
+/// Base decimals for DOMEX token (1e6 = 6 decimals like USDC)
 pub const DOMEX_DECIMAL_MULTIPLIER: u64 = 1_000_000;
 
-/// Total hard-capped DOMEX supply: 1 billion tokens (fixed forever)
+/// Hard-capped total supply of DOMEX: 1 billion tokens (fixed)
 pub const DOMEX_TOTAL_SUPPLY: u64 = 1_000_000_000 * DOMEX_DECIMAL_MULTIPLIER;
 
-/// Genesis mint allocation to first validator (20%)
+/// Allocation minted at genesis to the first validator (20%)
 pub const FIRST_VALIDATOR_MINT: u64 = 200_000_000 * DOMEX_DECIMAL_MULTIPLIER;
 
-/// Remaining unminted pool (used for validator rewards + fuel recycling)
+/// Unminted reward pool for future validator emissions + fuel burn recycling
 pub const UNMINTED_REWARD_POOL: u64 = DOMEX_TOTAL_SUPPLY - FIRST_VALIDATOR_MINT;
 
-/// Minimum fuel burn required for valid proof (can be scaled per vault)
+/// Minimum fuel burn required for proof submission (scaled per vault)
 pub const MIN_PROOF_FUEL_BURN: u64 = 10 * DOMEX_DECIMAL_MULTIPLIER / 1_000_000; // 0.00001 DOMEX
 
-/// Maximum reward per validator per block (e.g., 2 DOMEX)
+/// Maximum DOMEX reward per validator per attested block
 pub const MAX_VALIDATOR_REWARD: u64 = 2 * DOMEX_DECIMAL_MULTIPLIER;
 
-/// Share of burned fuel recycled into the unminted pool (100%)
+/// Proportion of burned DOMEX recycled back into unminted pool (e.g. 100%)
 pub const FUEL_RECYCLE_RATIO: f64 = 1.0;
 
-/// Calculates how much of a burned fuel amount gets recycled into the pool
+/// Calculates how much of the burned fuel gets recycled into the global pool
 pub fn recycled_fuel_amount(burned: u64) -> u64 {
     (burned as f64 * FUEL_RECYCLE_RATIO) as u64
 }
 
-/// Calculates how many validator reward tokens can be distributed from unminted pool
+/// Validator reward budget per epoch or block — drawn from unminted pool
 pub fn validator_reward_budget() -> u64 {
     UNMINTED_REWARD_POOL
 }
 
-/// Returns total DOMEX supply in decimal units
+/// Returns total DOMEX supply in human-readable decimal (e.g. 1_000_000_000.0)
 pub fn total_domex_human_readable() -> f64 {
     DOMEX_TOTAL_SUPPLY as f64 / DOMEX_DECIMAL_MULTIPLIER as f64
+}
+
+/// Calculates user-visible decimal value from raw token amount
+pub fn to_domex_decimal(units: u64) -> f64 {
+    units as f64 / DOMEX_DECIMAL_MULTIPLIER as f64
+}
+
+/// Converts decimal value back into on-chain integer representation
+pub fn from_domex_decimal(amount: f64) -> u64 {
+    (amount * DOMEX_DECIMAL_MULTIPLIER as f64).round() as u64
 }

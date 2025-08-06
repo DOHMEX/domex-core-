@@ -1,42 +1,44 @@
 // src/validator/validator_selection.rs
 
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 use crate::types::bftcomet::Validator;
+use crate::common::poseidon_utils::poseidon_hash_u64;
 use rand::{seq::IteratorRandom, thread_rng};
 
 /// Configurable constants
 pub const MINORITY_SIZE: usize = 300;
+pub const ORIGIN_VALIDATOR_CAP: usize = 99_700;
 
 /// Validator selection manager
 pub struct ValidatorSelection {
-    /// All active validators indexed by id
+    /// All validators indexed by ID
     pub all_validators: HashMap<String, Validator>,
 
-    /// Current minority committee (300 validators)
+    /// Set of minority validators (300 rotating judges)
     pub minority_committee: HashSet<String>,
 
-    /// Current majority validators (outside minority)
-    pub majority_validators: HashSet<String>,
+    /// Set of origin submitters (e.g., up to 99,700 global validators)
+    pub origin_validators: HashSet<String>,
 }
 
 impl ValidatorSelection {
-    /// Initialize with full validator set
-    pub fn new(all_validators: Vec<Validator>) -> Self {
+    /// Initialize with full validator list
+    pub fn new(all: Vec<Validator>) -> Self {
         let mut vs = ValidatorSelection {
             all_validators: HashMap::new(),
             minority_committee: HashSet::new(),
-            majority_validators: HashSet::new(),
+            origin_validators: HashSet::new(),
         };
 
-        for v in all_validators {
+        for v in all {
             vs.all_validators.insert(v.id.clone(), v);
         }
 
-        // Select minority committee at init
+        // Select 300 minority validators based on stake and activity
         vs.minority_committee = vs.select_minority_committee();
 
-        // Define majority as those not in minority
-        vs.majority_validators = vs
+        // All others are treated as origin submitters
+        vs.origin_validators = vs
             .all_validators
             .keys()
             .filter(|id| !vs.minority_committee.contains(*id))
@@ -46,11 +48,8 @@ impl ValidatorSelection {
         vs
     }
 
-    /// Select the minority committee of 300 validators based on stake & activity
+    /// Select top 300 validators by stake and recent activity
     fn select_minority_committee(&self) -> HashSet<String> {
-        let mut rng = thread_rng();
-
-        // Rank validators by stake (descending) and last_active_epoch (descending)
         let mut ranked: Vec<&Validator> = self.all_validators.values().collect();
         ranked.sort_by(|a, b| {
             b.stake
@@ -58,37 +57,27 @@ impl ValidatorSelection {
                 .then_with(|| b.last_active_epoch.cmp(&a.last_active_epoch))
         });
 
-        // Select top MINORITY_SIZE validators deterministically
         ranked
-            .iter()
+            .into_iter()
             .take(MINORITY_SIZE)
             .map(|v| v.id.clone())
             .collect()
     }
 
-    /// Select one validator from majority to join full committee
-    pub fn select_majority_validator(&self) -> Option<String> {
-        let mut rng = thread_rng();
-
-        // Filter majority validators who are active (last_active_epoch recent)
-        let active_majority: Vec<&String> = self
-            .majority_validators
-            .iter()
-            .filter(|id| {
-                if let Some(v) = self.all_validators.get(*id) {
-                    v.last_active_epoch > 0 // e.g. active recently; customize as needed
-                } else {
-                    false
-                }
-            })
-            .collect();
-
-        active_majority.into_iter().choose(&mut rng).cloned()
+    /// Select one validator from origin pool using Poseidon(epoch) as seed
+    pub fn select_origin_submitter(&self, epoch: u64) -> Option<String> {
+        let seed = poseidon_hash_u64(epoch);
+        let available: Vec<&String> = self.origin_validators.iter().collect();
+        if available.is_empty() {
+            None
+        } else {
+            let index = (seed % available.len() as u64) as usize;
+            Some(available[index].clone())
+        }
     }
 
-    /// Update minority committee on rotation (e.g. removing oldest, adding new)
+    /// Rotate minority committee by removing lowest and inserting next best
     pub fn rotate_minority(&mut self) {
-        // For simplicity, drop the lowest stake validator and add next highest not in minority
         if let Some(lowest) = self
             .minority_committee
             .iter()
@@ -97,7 +86,6 @@ impl ValidatorSelection {
         {
             self.minority_committee.remove(&lowest);
 
-            // Find next highest stake validator outside minority
             let candidates: Vec<&Validator> = self
                 .all_validators
                 .values()
@@ -105,15 +93,15 @@ impl ValidatorSelection {
                 .collect();
 
             if let Some(next_best) = candidates
-                .iter()
+                .into_iter()
                 .max_by_key(|v| v.stake)
                 .map(|v| v.id.clone())
             {
                 self.minority_committee.insert(next_best);
             }
 
-            // Update majority set accordingly
-            self.majority_validators = self
+            // Recompute origin validators
+            self.origin_validators = self
                 .all_validators
                 .keys()
                 .filter(|id| !self.minority_committee.contains(*id))
@@ -136,26 +124,20 @@ mod tests {
     }
 
     #[test]
-    fn test_selection_and_rotation() {
-        let mut all_validators = vec![];
-        for i in 0..350 {
-            all_validators.push(make_validator(&format!("v{}", i), 1000 - i as u64, 10));
-        }
+    fn test_selection_logic() {
+        let all_validators = (0..400)
+            .map(|i| make_validator(&format!("v{}", i), 1000 - i as u64, 20))
+            .collect::<Vec<_>>();
 
         let mut selection = ValidatorSelection::new(all_validators);
-
-        // Initial minority committee size
         assert_eq!(selection.minority_committee.len(), MINORITY_SIZE);
+        assert_eq!(selection.origin_validators.len(), 100);
 
-        // Majority validator selected should be outside minority committee
-        if let Some(selected) = selection.select_majority_validator() {
-            assert!(!selection.minority_committee.contains(&selected));
-        } else {
-            panic!("No majority validator selected");
+        if let Some(selected) = selection.select_origin_submitter(42) {
+            assert!(selection.origin_validators.contains(&selected));
         }
 
-        // Rotate minority committee and check size stays correct
         selection.rotate_minority();
         assert_eq!(selection.minority_committee.len(), MINORITY_SIZE);
     }
-}
+                }

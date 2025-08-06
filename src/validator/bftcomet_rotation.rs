@@ -177,4 +177,5 @@ mod tests {
         assert!(rotation.validate_attestations(&attestations));
         assert!(rotation.epoch_step(&attestations));
     }
-    
+      
+}
